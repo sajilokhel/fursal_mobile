@@ -95,7 +95,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final bookingsAsync = ref.watch(userBookingsProvider(user.uid));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Bookings')),
+      // appBar: AppBar(title: const Text('My Bookings')),
       body: bookingsAsync.when(
         data: (bookings) {
           if (bookings.isEmpty) {
