@@ -28,12 +28,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
       // Initiate payment
       final paymentService = PaymentService();
-      // Calculate partial amount (16.666%)
-      final partialAmount = (booking.amount * 16.666 / 100).ceilToDouble();
+      // Ask backend to compute amount (this returns computed metadata)
+      final computeResp = await paymentService.computeAmount(
+        venueId: booking.venueId,
+        date: booking.date,
+        startTime: booking.startTime,
+        slots: 1,
+      );
+
+      final paidAmount =
+          paymentService.extractPaidAmountFromCompute(computeResp);
+      debugPrint('computeAmount paidAmount: $paidAmount');
 
       final paymentResp = await paymentService.initiatePayment(
         bookingId: booking.id,
-        totalAmount: partialAmount,
         transactionUuid: booking.esewaTransactionUuid,
       );
 
