@@ -13,6 +13,7 @@ class PaymentService {
   Future<Map<String, dynamic>> initiatePayment({
     required String bookingId,
     required double totalAmount,
+    String? transactionUuid,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -22,7 +23,11 @@ class PaymentService {
     final idToken = await user.getIdToken();
 
     final uri = Uri.parse(AppConfig.paymentInitiateUrl());
-    final bodyMap = {'bookingId': bookingId, 'totalAmount': totalAmount};
+    final bodyMap = {
+      'bookingId': bookingId,
+      'totalAmount': totalAmount,
+      if (transactionUuid != null) 'transactionUuid': transactionUuid,
+    };
     final body = jsonEncode(bodyMap);
 
     await LoggerService().info('initiatePayment: request', meta: {

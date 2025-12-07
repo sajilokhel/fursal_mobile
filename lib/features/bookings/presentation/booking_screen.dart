@@ -34,6 +34,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       final paymentResp = await paymentService.initiatePayment(
         bookingId: booking.id,
         totalAmount: partialAmount,
+        transactionUuid: booking.esewaTransactionUuid,
       );
 
       final paymentParams =
@@ -112,10 +113,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               children: [
                 _buildBookingSection(context, 'Upcoming Bookings',
                     _getUpcomingBookings(bookings)),
+                _buildBookingSection(context, 'Pending Payments',
+                    _getPaymentPendingBookings(bookings)),
                 _buildBookingSection(
                     context, 'Completed', _getCompletedBookings(bookings)),
-                _buildBookingSection(context, 'Payment Not Found',
-                    _getPaymentPendingBookings(bookings)),
                 _buildBookingSection(context, 'Cancelled & Expired',
                     _getCancelledExpiredBookings(bookings)),
               ],
@@ -133,7 +134,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     return bookings.where((b) {
       final startDateTime = _parseDateTime(b.date, b.startTime);
       final isBooked = b.status == 'booked' || b.status == 'confirmed';
-      return isBooked && startDateTime.isAfter(now);
+      // Only show in upcoming if payment is NOT pending (otherwise it goes to Pending Payments)
+      final isPaymentDone = b.paymentStatus != 'pending';
+      return isBooked && isPaymentDone && startDateTime.isAfter(now);
     }).toList();
   }
 
@@ -150,11 +153,24 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final now = DateTime.now();
     return bookings.where((b) {
       final endDateTime = _parseDateTime(b.date, b.endTime);
-      final isPending = b.status == 'pending';
+
+      // If time passed, it's not pending payment (it's expired or completed)
+      if (endDateTime.isBefore(now)) return false;
+
+      final isPendingStatus = b.status == 'pending';
+      final isBookedStatus = b.status == 'booked' || b.status == 'confirmed';
+      final isPaymentPending = b.paymentStatus == 'pending';
+
       final isHoldValid =
           b.holdExpiresAt == null || b.holdExpiresAt!.toDate().isAfter(now);
-      // It is pending payment if status is pending, hold is valid (or null), AND slot hasn't passed
-      return isPending && isHoldValid && endDateTime.isAfter(now);
+
+      // Case 1: Status is pending (and hold is valid)
+      if (isPendingStatus && isHoldValid) return true;
+
+      // Case 2: Status is booked/confirmed BUT payment is still pending
+      if (isBookedStatus && isPaymentPending) return true;
+
+      return false;
     }).toList();
   }
 
@@ -223,6 +239,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             textColor = Colors.green.shade900;
           }
 
+          final isPendingPayment = booking.paymentStatus == 'pending' &&
+              !effectiveExpired &&
+              !isCompleted &&
+              booking.status != 'cancelled';
+
           return Card(
             color: cardColor,
             elevation:
@@ -232,12 +253,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               onTap: (effectiveExpired || booking.status == 'cancelled')
                   ? null
                   : () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              BookingDetailScreen(booking: booking),
-                        ),
-                      );
+                      if (isPendingPayment) {
+                        _initiatePaymentAndNavigate(booking);
+                      } else {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                BookingDetailScreen(booking: booking),
+                          ),
+                        );
+                      }
                     },
               child: ListTile(
                 title: Text(
@@ -281,20 +306,21 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       ),
                   ],
                 ),
-                trailing: (booking.paymentStatus == 'pending' &&
-                        !effectiveExpired &&
-                        !isCompleted &&
-                        booking.status != 'cancelled')
+                trailing: isPendingPayment
                     ? ElevatedButton(
                         onPressed: _isInitiatingPayment
                             ? null
                             : () => _initiatePaymentAndNavigate(booking),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
                         child: _isInitiatingPayment
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
                               )
                             : const Text('Pay'),
                       )

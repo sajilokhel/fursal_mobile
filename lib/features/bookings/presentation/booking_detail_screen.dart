@@ -1,16 +1,12 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:crypto/crypto.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../domain/booking.dart';
 import '../data/checkout_state.dart';
 import '../../../services/payment_service.dart';
+import '../../../core/config.dart';
 import 'payment_screen.dart';
-import 'invoice_preview_screen.dart';
 
 class BookingDetailScreen extends ConsumerStatefulWidget {
   final Booking booking;
@@ -42,6 +38,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       final paymentResp = await paymentService.initiatePayment(
         bookingId: booking.id,
         totalAmount: partialAmount,
+        transactionUuid: booking.esewaTransactionUuid,
       );
 
       final paymentParams =
@@ -110,15 +107,15 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _isGeneratingInvoice
                       ? null
-                      : () => _generateAndDownloadInvoice(context, booking),
+                      : () => _downloadInvoice(context, booking),
                   icon: _isGeneratingInvoice
                       ? const SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.picture_as_pdf),
+                      : const Icon(Icons.download),
                   label: Text(_isGeneratingInvoice
-                      ? 'Generating...'
+                      ? 'Downloading...'
                       : 'Download Invoice'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -235,6 +232,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
             _buildRow('Time', '${booking.startTime} - ${booking.endTime}'),
             _buildRow('Amount', 'Rs. ${booking.amount}'),
             _buildRow('Booking ID', booking.id),
+            if (booking.esewaTransactionUuid != null)
+              _buildRow('Transaction ID', booking.esewaTransactionUuid!),
             if (booking.holdExpiresAt != null && booking.status == 'pending')
               _buildRow(
                   'Expires At',
@@ -267,63 +266,37 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
     );
   }
 
-  Future<void> _generateAndDownloadInvoice(
-      BuildContext context, Booking booking) async {
+  Future<void> _downloadInvoice(BuildContext context, Booking booking) async {
     setState(() {
       _isGeneratingInvoice = true;
     });
 
     try {
-      // Load logo
-      final logoBytes =
-          (await rootBundle.load('assets/logo.png')).buffer.asUint8List();
+      // Construct the invoice URL
+      // Assuming the backend exposes an endpoint like /api/bookings/{id}/invoice
+      // or /api/invoice/{id}. Adjust based on actual backend route.
+      final url = Uri.parse(
+          '${AppConfig.backendBaseUrl}/api/bookings/${booking.id}/invoice');
 
-      // Prepare invoice data
-      final invoiceData = InvoiceData(
-        bookingId: booking.id,
-        venueName: booking.venueName,
-        userId: booking.userId,
-        date: booking.date,
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-        amount: booking.amount,
-        logoBytes: logoBytes,
-        invoiceDate: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        venueId: booking.venueId,
-        paymentId: booking.paymentId,
-      );
-
-      // Generate PDF
-      final pdfBytes = await compute(generateInvoicePdf, invoiceData);
-
-      final fileName = 'Invoice_${booking.id}.pdf';
-
-      if (mounted) {
-        setState(() {
-          _isGeneratingInvoice = false;
-        });
-
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => InvoicePreviewScreen(
-              pdfBytes: pdfBytes,
-              fileName: fileName,
-            ),
-          ),
-        );
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $url';
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isGeneratingInvoice = false;
-        });
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error generating invoice: $e'),
+            content: Text('Error downloading invoice: $e'),
             duration: const Duration(seconds: 5),
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingInvoice = false;
+        });
       }
     }
   }
@@ -369,184 +342,4 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
       ),
     );
   }
-}
-
-class InvoiceData {
-  final String bookingId;
-  final String venueName;
-  final String userId;
-  final String date;
-  final String startTime;
-  final String endTime;
-  final double amount;
-  final Uint8List logoBytes;
-  final String invoiceDate;
-  final String venueId;
-  final String? paymentId;
-
-  InvoiceData({
-    required this.bookingId,
-    required this.venueName,
-    required this.userId,
-    required this.date,
-    required this.startTime,
-    required this.endTime,
-    required this.amount,
-    required this.logoBytes,
-    required this.invoiceDate,
-    required this.venueId,
-    this.paymentId,
-  });
-}
-
-Future<Uint8List> generateInvoicePdf(InvoiceData data) async {
-  final pdf = pw.Document();
-  final logoImage = pw.MemoryImage(data.logoBytes);
-
-  // Generate QR Code Data
-  final qrData = {
-    'bookingId': data.bookingId,
-    'userId': data.userId,
-    'venueId': data.venueId,
-    'amount': data.amount,
-    'date': data.date,
-    'startTime': data.startTime,
-    'endTime': data.endTime,
-    'transactionId': data.paymentId, // Using transactionId as requested
-    'timestamp': DateTime.now().toIso8601String(),
-  };
-  final qrString = jsonEncode(qrData);
-  final bytes = utf8.encode(qrString);
-  final hash = sha256.convert(bytes);
-  final finalQrContent = jsonEncode({
-    'data': qrData,
-    'hash': hash.toString(),
-  });
-
-  pdf.addPage(
-    pw.Page(
-      build: (pw.Context context) {
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // Header with Logo
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('INVOICE',
-                        style: pw.TextStyle(
-                            fontSize: 40, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('SajiloKhel',
-                        style: const pw.TextStyle(fontSize: 20)),
-                  ],
-                ),
-                pw.Image(logoImage, width: 80, height: 80),
-              ],
-            ),
-            pw.SizedBox(height: 40),
-
-            // Invoice Details (Top Right)
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.end,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text('Invoice Date: ${data.invoiceDate}'),
-                    pw.Text('Booking ID: ${data.bookingId}'),
-                  ],
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 20),
-
-            // Billed To (Left)
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('Billed To:',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                pw.Text('User ID: ${data.userId}'),
-              ],
-            ),
-
-            pw.SizedBox(height: 40),
-            pw.Text('Booking Details',
-                style:
-                    pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-            pw.Divider(),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Venue'),
-                pw.Text(data.venueName),
-              ],
-            ),
-            pw.SizedBox(height: 10),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Date & Time'),
-                pw.Text('${data.date} | ${data.startTime} - ${data.endTime}'),
-              ],
-            ),
-            pw.SizedBox(height: 10),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Booked By'),
-                pw.Text(data.userId),
-              ],
-            ),
-            pw.SizedBox(height: 10),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Platform'),
-                pw.Text('Mobile App (SajiloKhel)'),
-              ],
-            ),
-            pw.SizedBox(height: 20),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Total Amount',
-                    style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 16)),
-                pw.Text('Rs. ${data.amount}',
-                    style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 16)),
-              ],
-            ),
-            pw.SizedBox(height: 40),
-            pw.Center(
-              child: pw.BarcodeWidget(
-                barcode: pw.Barcode.qrCode(),
-                data: finalQrContent,
-                width: 200,
-                height: 200,
-              ),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Center(child: pw.Text('Scan to verify booking')),
-            pw.Spacer(),
-            pw.Divider(),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Thank you for booking with SajiloKhel!'),
-                pw.Text('Contact: contact@sajilokhel.com'),
-              ],
-            ),
-          ],
-        );
-      },
-    ),
-  );
-
-  return pdf.save();
 }
