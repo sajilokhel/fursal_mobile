@@ -126,4 +126,47 @@ class BookingRepository {
           .toList();
     });
   }
+
+  Future<Booking?> getBookingById(String bookingId) async {
+    final doc = await _firestore.collection('bookings').doc(bookingId).get();
+    if (doc.exists) {
+      return Booking.fromMap(doc.data()!);
+    }
+    return null;
+  }
+
+  Stream<List<Booking>> getBookingsForVenues(List<String> venueIds) {
+    if (venueIds.isEmpty) {
+      return Stream.value([]);
+    }
+    // Note: Firestore 'whereIn' limits to 10 values.
+    // If a manager has > 10 venues, this needs to be chunked or handled differently.
+    // For now assuming < 10 venues.
+    return _firestore
+        .collection('bookings')
+        .where('venueId', whereIn: venueIds)
+        // Note: orderBy might require composite index if filtering by venueId
+        // If index missing, it will throw an error with a link to create it.
+        // We might need to sort client side if we don't want to create index.
+        // Let's try without orderBy on date first if it complicates things,
+        // but sorting by date is important.
+        // Actually, let's remove orderBy in query and sort client side to avoid index issues for now.
+        .snapshots()
+        .map((snapshot) {
+      final bookings =
+          snapshot.docs.map((doc) => Booking.fromMap(doc.data())).toList();
+      bookings.sort((a, b) {
+        // Sort by date desc, then startTime desc
+        int dateComp = b.date.compareTo(a.date);
+        if (dateComp != 0) return dateComp;
+        return b.startTime.compareTo(a.startTime);
+      });
+      return bookings;
+    });
+  }
 }
+
+final managerBookingsProvider =
+    StreamProvider.family<List<Booking>, List<String>>((ref, venueIds) {
+  return ref.watch(bookingRepositoryProvider).getBookingsForVenues(venueIds);
+});
