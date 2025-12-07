@@ -165,7 +165,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       // If time passed, it's not pending payment (it's expired or completed)
       if (endDateTime.isBefore(now)) return false;
 
-      final isPendingStatus = b.status == 'pending';
+      final isPendingStatus =
+          b.status == 'pending' || b.status == 'pending_payment';
       final isBookedStatus = b.status == 'booked' || b.status == 'confirmed';
       final isPaymentPending = b.paymentStatus == 'pending';
 
@@ -224,14 +225,17 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ),
         children: bookings.map((booking) {
           final isExpired = booking.status == 'expired' ||
-              (booking.status == 'pending' &&
+              ((booking.status == 'pending' ||
+                      booking.status == 'pending_payment') &&
                   booking.holdExpiresAt != null &&
                   booking.holdExpiresAt!.toDate().isBefore(DateTime.now()));
 
           final endDateTime = _parseDateTime(booking.date, booking.endTime);
           final isTimePassed = endDateTime.isBefore(DateTime.now());
-          final effectiveExpired =
-              isExpired || (booking.status == 'pending' && isTimePassed);
+          final effectiveExpired = isExpired ||
+              ((booking.status == 'pending' ||
+                      booking.status == 'pending_payment') &&
+                  isTimePassed);
           final isCompleted =
               (booking.status == 'booked' || booking.status == 'confirmed') &&
                   isTimePassed;

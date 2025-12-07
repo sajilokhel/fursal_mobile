@@ -6,7 +6,8 @@ final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
   return BookingRepository(FirebaseFirestore.instance);
 });
 
-final userBookingsProvider = StreamProvider.family<List<Booking>, String>((ref, userId) {
+final userBookingsProvider =
+    StreamProvider.family<List<Booking>, String>((ref, userId) {
   return ref.watch(bookingRepositoryProvider).getUserBookings(userId);
 });
 
@@ -16,18 +17,24 @@ class BookingRepository {
   BookingRepository(this._firestore);
 
   Future<void> createBooking(Booking booking) async {
-    await _firestore.collection('bookings').doc(booking.id).set(booking.toMap());
+    await _firestore
+        .collection('bookings')
+        .doc(booking.id)
+        .set(booking.toMap());
   }
 
-  Future<void> updateBookingStatus(String bookingId, String status, {
-    Booking? booking, 
+  Future<void> updateBookingStatus(
+    String bookingId,
+    String status, {
+    Booking? booking,
     Map<String, dynamic>? esewaData,
   }) async {
     if (status == 'booked' && booking != null) {
       // Use transaction to update both booking and venueSlots
       await _firestore.runTransaction((transaction) async {
         final bookingRef = _firestore.collection('bookings').doc(bookingId);
-        final venueRef = _firestore.collection('venueSlots').doc(booking.venueId);
+        final venueRef =
+            _firestore.collection('venueSlots').doc(booking.venueId);
 
         // Update booking
         final updateData = <String, dynamic>{
@@ -43,13 +50,12 @@ class BookingRepository {
         if (venueSnapshot.exists) {
           final data = venueSnapshot.data()!;
           final held = List<Map<String, dynamic>>.from(data['held'] ?? []);
-          final bookings = List<Map<String, dynamic>>.from(data['bookings'] ?? []);
+          final bookings =
+              List<Map<String, dynamic>>.from(data['bookings'] ?? []);
 
           // Remove from held
-          held.removeWhere((h) => 
-            h['date'] == booking.date && 
-            h['startTime'] == booking.startTime
-          );
+          held.removeWhere((h) =>
+              h['date'] == booking.date && h['startTime'] == booking.startTime);
 
           // Add to bookings
           bookings.add({
@@ -96,7 +102,7 @@ class BookingRepository {
       if (holdExpiresAt != null && holdExpiresAt.isBefore(now)) {
         batch.update(doc.reference, {'status': 'expired'});
         hasUpdates = true;
-        
+
         // Also remove from held slots in venueSlots if needed
         // Ideally we should do this, but for now let's just expire the booking.
         // The held slot in venueSlots also has an expiry, so it will be ignored by getVenueSlots logic anyway.
@@ -115,7 +121,9 @@ class BookingRepository {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => Booking.fromMap(doc.data())).toList();
+      return snapshot.docs
+          .map((doc) => Booking.fromMap({...doc.data(), 'id': doc.id}))
+          .toList();
     });
   }
 }

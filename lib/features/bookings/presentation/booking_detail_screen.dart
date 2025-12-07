@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../../services/invoice_service.dart';
 import '../domain/booking.dart';
 import '../data/checkout_state.dart';
 import '../../../services/payment_service.dart';
-import '../../../core/config.dart';
+
 import 'payment_screen.dart';
 
 class BookingDetailScreen extends ConsumerStatefulWidget {
@@ -40,7 +43,8 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
         slots: 1,
       );
 
-      final paidAmount = paymentService.extractPaidAmountFromCompute(computeResp);
+      final paidAmount =
+          paymentService.extractPaidAmountFromCompute(computeResp);
       debugPrint('computeAmount paidAmount: $paidAmount');
 
       final paymentResp = await paymentService.initiatePayment(
@@ -279,18 +283,18 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
     });
 
     try {
-      // Construct the invoice URL
-      // Assuming the backend exposes an endpoint like /api/bookings/{id}/invoice
-      // or /api/invoice/{id}. Adjust based on actual backend route.
-      final url = Uri.parse(
-          '${AppConfig.backendBaseUrl}/api/bookings/${booking.id}/invoice');
+      // Fetch PDF bytes from backend
+      final invoiceService = InvoiceService();
+      final bytes = await invoiceService.fetchInvoiceBytes(booking.id);
 
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        throw 'Could not launch $url';
-      }
-    } catch (e) {
+      // Save to app documents directory and open
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName = 'invoice_${booking.id}.pdf';
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsBytes(bytes);
+
+      await OpenFilex.open(file.path);
+    } catch (e, st) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -299,6 +303,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
           ),
         );
       }
+      debugPrint('Invoice download error: $e\n$st');
     } finally {
       if (mounted) {
         setState(() {
