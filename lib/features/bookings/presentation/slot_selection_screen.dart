@@ -434,19 +434,22 @@ class _SlotSelectionScreenState extends ConsumerState<SlotSelectionScreen> {
                               .read(checkoutProvider.notifier)
                               .setBooking(booking);
 
-                          // Calculate partial payment amount (16.666% of total)
-                          // e.g. 1200 * 0.16666 = ~199.992 -> rounded to 200 (ceil)
-                          final partialAmount =
-                              (widget.pricePerHour * 16.666 / 100)
-                                  .ceilToDouble();
-
-                          // Initiate payment and store params in global state
+                          // Ask backend to compute payment amount for the selected slot
                           final paymentService = PaymentService();
-                          final paymentResp =
-                              await paymentService.initiatePayment(
+                          final computeResp = await paymentService.computeAmount(
+                            venueId: widget.venueId,
+                            date: dateStr,
+                            startTime: _selectedSlotTime!,
+                            slots: 1,
+                          );
+
+                            final paidAmount =
+                              paymentService.extractPaidAmountFromCompute(computeResp);
+                            debugPrint('computeAmount paidAmount: $paidAmount');
+
+                          // Initiate payment (backend will compute amount server-side)
+                          final paymentResp = await paymentService.initiatePayment(
                             bookingId: bookingId,
-                            totalAmount:
-                                partialAmount, // Send partial amount to initiate
                           );
 
                           final paymentParams = paymentResp['paymentParams']

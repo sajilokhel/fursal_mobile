@@ -121,7 +121,9 @@ class BookingRepository {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => Booking.fromMap(doc.data())).toList();
+      return snapshot.docs
+          .map((doc) => Booking.fromMap({...doc.data(), 'id': doc.id}))
+          .toList();
     });
   }
 
