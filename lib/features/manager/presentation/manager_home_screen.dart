@@ -109,7 +109,7 @@ class ManagerHomeScreen extends ConsumerWidget {
               return VenueListCard(
                 venue: venue,
                 onTap: () {
-                  // TODO: Navigate to manager venue detail/edit
+                  context.push('/manager/venues/edit-venue/${venue.id}');
                 },
               );
             },

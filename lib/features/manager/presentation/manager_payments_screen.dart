@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../auth/data/auth_repository.dart';
-import '../../auth/domain/auth_user.dart';
+
 import '../../venues/data/venue_repository.dart';
 import '../../bookings/data/booking_repository.dart';
 import '../../bookings/domain/booking.dart';

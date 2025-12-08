@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 import '../domain/venue.dart';
 import '../domain/review.dart';
 import '../domain/venue_slot.dart';
@@ -16,11 +18,13 @@ final venueProvider = StreamProvider.family<Venue?, String>((ref, id) {
   return ref.watch(venueRepositoryProvider).getVenue(id);
 });
 
-final venueSlotsProvider = StreamProvider.family<VenueSlotData?, String>((ref, venueId) {
+final venueSlotsProvider =
+    StreamProvider.family<VenueSlotData?, String>((ref, venueId) {
   return ref.watch(venueRepositoryProvider).getVenueSlots(venueId);
 });
 
-final venueReviewsProvider = StreamProvider.family<List<Review>, String>((ref, venueId) {
+final venueReviewsProvider =
+    StreamProvider.family<List<Review>, String>((ref, venueId) {
   return ref.watch(venueRepositoryProvider).getReviews(venueId);
 });
 
@@ -58,7 +62,11 @@ class VenueRepository {
   }
 
   Stream<VenueSlotData?> getVenueSlots(String venueId) {
-    return _firestore.collection('venueSlots').doc(venueId).snapshots().map((doc) {
+    return _firestore
+        .collection('venueSlots')
+        .doc(venueId)
+        .snapshots()
+        .map((doc) {
       if (!doc.exists) return null;
       return VenueSlotData.fromMap(doc.data()!, doc.id);
     });
@@ -90,9 +98,8 @@ class VenueRepository {
           b.startTime == heldSlot.startTime &&
           b.status != 'cancelled');
 
-      bool isBlocked = data.blocked.any((b) =>
-          b.date == heldSlot.date &&
-          b.startTime == heldSlot.startTime);
+      bool isBlocked = data.blocked.any(
+          (b) => b.date == heldSlot.date && b.startTime == heldSlot.startTime);
 
       bool isHeld = data.held.any((h) =>
           h.date == heldSlot.date &&
@@ -105,22 +112,39 @@ class VenueRepository {
 
       List<HeldSlot> currentHeld = List.from(data.held);
       // Remove expired holds for this slot if any (though isHeld check handles valid ones)
-      currentHeld.removeWhere((h) =>
-          h.date == heldSlot.date &&
-          h.startTime == heldSlot.startTime);
+      currentHeld.removeWhere(
+          (h) => h.date == heldSlot.date && h.startTime == heldSlot.startTime);
 
       currentHeld.add(heldSlot);
 
       transaction.update(docRef, {
-        'held': currentHeld.map((e) => {
-          'date': e.date,
-          'startTime': e.startTime,
-          'userId': e.userId,
-          'holdExpiresAt': e.holdExpiresAt,
-          'bookingId': e.bookingId,
-          'createdAt': e.createdAt,
-        }).toList(),
+        'held': currentHeld
+            .map((e) => {
+                  'date': e.date,
+                  'startTime': e.startTime,
+                  'userId': e.userId,
+                  'holdExpiresAt': e.holdExpiresAt,
+                  'bookingId': e.bookingId,
+                  'createdAt': e.createdAt,
+                })
+            .toList(),
       });
     });
+  }
+
+  Future<void> updateVenue(Venue venue) async {
+    await _firestore.collection('venues').doc(venue.id).update(venue.toMap());
+  }
+
+  Future<String> uploadVenueImage(File file, String venueId) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('venues')
+        .child(venueId)
+        .child('image_$timestamp.jpg');
+
+    await storageRef.putFile(file);
+    return await storageRef.getDownloadURL();
   }
 }

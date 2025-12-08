@@ -55,4 +55,21 @@ class Venue {
       reviewCount: (map['reviewCount'] ?? 0).toInt(),
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'description': description,
+      'latitude': latitude,
+      'longitude': longitude,
+      'address': address,
+      'imageUrls': imageUrls,
+      'pricePerHour': pricePerHour,
+      'attributes': attributes,
+      'createdAt': createdAt,
+      'managedBy': managedBy,
+      'averageRating': averageRating,
+      'reviewCount': reviewCount,
+    };
+  }
 }

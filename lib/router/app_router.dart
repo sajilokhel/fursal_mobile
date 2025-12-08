@@ -12,6 +12,7 @@ import '../features/manager/presentation/create_venue_screen.dart';
 import '../features/manager/presentation/manager_bookings_screen.dart';
 import '../features/manager/presentation/manager_dashboard_screen.dart';
 import '../features/manager/presentation/manager_payments_screen.dart';
+import '../features/manager/presentation/manager_venue_edit_screen.dart';
 
 import '../features/manager/presentation/manager_home_screen.dart';
 import '../features/manager/presentation/manager_scan_qr_screen.dart';
@@ -117,6 +118,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'create-venue',
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (context, state) => const CreateVenueScreen(),
+                  ),
+                  GoRoute(
+                    path: 'edit-venue/:id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) {
+                      final id = state.pathParameters['id']!;
+                      return ManagerVenueEditScreen(venueId: id);
+                    },
                   ),
                 ],
               ),
