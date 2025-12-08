@@ -155,4 +155,17 @@ class AuthRepository {
     await storageRef.putFile(file);
     return await storageRef.getDownloadURL();
   }
+
+  Future<AuthUser?> getUserData(String userId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        return AuthUser.fromMap(doc.data()!, userId);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching user data: $e');
+      return null;
+    }
+  }
 }
