@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bookings/data/booking_repository.dart';
 import '../../bookings/domain/booking.dart';
+import 'widgets/booking_detail_sheet.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../../core/theme.dart';
@@ -135,8 +136,31 @@ class _ManagerBookingsScreenState extends ConsumerState<ManagerBookingsScreen> {
                             itemBuilder: (context, index) {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
-                                child: _BookingCard(
-                                    booking: filteredBookings[index]),
+                                child: InkWell(
+                                  onTap: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(20)),
+                                      ),
+                                      builder: (context) =>
+                                          DraggableScrollableSheet(
+                                        initialChildSize: 0.7,
+                                        minChildSize: 0.5,
+                                        maxChildSize: 0.95,
+                                        expand: false,
+                                        builder: (context, _) =>
+                                            BookingDetailSheet(
+                                                booking:
+                                                    filteredBookings[index]),
+                                      ),
+                                    );
+                                  },
+                                  child: _BookingCard(
+                                      booking: filteredBookings[index]),
+                                ),
                               );
                             },
                           ),
