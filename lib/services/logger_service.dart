@@ -15,7 +15,7 @@ class LoggerService {
     if (_logDir != null) return;
     // Try to create and prefer writing logs into the local workspace `logs/` folder
     try {
-      final workspacePath = '/home/rabin/projects/fursal_mobile/logs';
+      const workspacePath = '/home/rabin/projects/fursal_mobile/logs';
       final workspaceDir = Directory(workspacePath);
       if (!(await workspaceDir.exists())) {
         // attempt to create; this may fail on devices but will work on the development host

@@ -167,6 +167,8 @@ class BookingRepository {
 }
 
 final managerBookingsProvider =
-    StreamProvider.family<List<Booking>, List<String>>((ref, venueIds) {
+    StreamProvider.family<List<Booking>, String>((ref, venueIdsString) {
+  final venueIds =
+      venueIdsString.isEmpty ? <String>[] : venueIdsString.split(',');
   return ref.watch(bookingRepositoryProvider).getBookingsForVenues(venueIds);
 });

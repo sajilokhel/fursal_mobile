@@ -58,11 +58,8 @@ class _ManagerBookingsScreenState extends ConsumerState<ManagerBookingsScreen> {
                 child: Text('No venues found. Create a venue first.'));
           }
 
-          // Debug prints
-          print('Manager ID: $userId');
-          print('Managed Venue IDs: $myVenueIds');
-
-          final bookingsAsync = ref.watch(managerBookingsProvider(myVenueIds));
+          final bookingsAsync =
+              ref.watch(managerBookingsProvider(myVenueIds.join(',')));
 
           return bookingsAsync.when(
             data: (bookings) {
@@ -100,7 +97,7 @@ class _ManagerBookingsScreenState extends ConsumerState<ManagerBookingsScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
+                          borderSide: const BorderSide(
                               color: AppTheme.primaryColor, width: 1),
                         ),
                       ),

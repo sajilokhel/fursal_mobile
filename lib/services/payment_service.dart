@@ -62,10 +62,13 @@ class PaymentService {
     // - 'paymentParams' (object) containing: amount, totalAmount, successUrl, failureUrl, productCode, transactionUuid
     final List<String> missing = [];
 
-    if (json['signature'] == null || (json['signature'] is! String))
+    if (json['signature'] == null || (json['signature'] is! String)) {
       missing.add('signature');
-    if (json['transactionUuid'] == null || (json['transactionUuid'] is! String))
+    }
+    if (json['transactionUuid'] == null ||
+        (json['transactionUuid'] is! String)) {
       missing.add('transactionUuid');
+    }
 
     final paymentParams = json['paymentParams'];
     if (paymentParams == null || paymentParams is! Map<String, dynamic>) {
@@ -80,8 +83,9 @@ class PaymentService {
         'transactionUuid'
       ];
       for (final k in requiredPm) {
-        if (!paymentParams.containsKey(k) || paymentParams[k] == null)
+        if (!paymentParams.containsKey(k) || paymentParams[k] == null) {
           missing.add('paymentParams.$k');
+        }
       }
     }
 

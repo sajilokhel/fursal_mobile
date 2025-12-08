@@ -286,7 +286,8 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
             icon: ValueListenableBuilder<MobileScannerState>(
               valueListenable: controller,
               builder: (context, state, child) {
-                return Icon(Icons.cameraswitch_outlined, color: Colors.white);
+                return const Icon(Icons.cameraswitch_outlined,
+                    color: Colors.white);
               },
             ),
             onPressed: () => controller.switchCamera(),
@@ -317,7 +318,7 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
           ),
           // Overlay
           Container(
-            decoration: ShapeDecoration(
+            decoration: const ShapeDecoration(
               shape: QrScannerOverlayShape(
                 borderColor: AppTheme.primaryColor,
                 borderRadius: 10,

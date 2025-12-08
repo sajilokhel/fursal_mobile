@@ -266,13 +266,13 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                         BoxShadow(color: Colors.black12, blurRadius: 10)
                       ],
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.search, color: Colors.grey),
-                        const SizedBox(width: 12),
+                        Icon(Icons.search, color: Colors.grey),
+                        SizedBox(width: 12),
                         Expanded(
                           child: TextField(
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Search for a location...',
                               border: InputBorder.none,
                               contentPadding:

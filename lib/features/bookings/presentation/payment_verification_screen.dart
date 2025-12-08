@@ -58,7 +58,7 @@ class _PaymentVerificationScreenState
         if (mounted) {
           // Reset checkout state on success
           ref.read(checkoutProvider.notifier).reset();
-          
+
           setState(() {
             _isLoading = false;
             _isSuccess = true;
@@ -140,7 +140,8 @@ class _PaymentVerificationScreenState
                 color: Colors.green.shade50,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.check_circle, size: 64, color: Colors.green),
+              child:
+                  const Icon(Icons.check_circle, size: 64, color: Colors.green),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -223,7 +224,7 @@ class _PaymentVerificationScreenState
             color: Colors.red.shade50,
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.error_outline, size: 64, color: Colors.red),
+          child: const Icon(Icons.error_outline, size: 64, color: Colors.red),
         ),
         const SizedBox(height: 24),
         const Text(
