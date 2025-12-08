@@ -11,6 +11,7 @@ import '../features/home/presentation/home_screen.dart';
 import '../features/manager/presentation/create_venue_screen.dart';
 import '../features/manager/presentation/manager_bookings_screen.dart';
 import '../features/manager/presentation/manager_dashboard_screen.dart';
+import '../features/manager/presentation/manager_payments_screen.dart';
 
 import '../features/manager/presentation/manager_home_screen.dart';
 import '../features/manager/presentation/manager_scan_qr_screen.dart';
@@ -99,9 +100,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/manager/payments',
-                builder: (context, state) => const Scaffold(
-                  body: Center(child: Text('Payments - Coming Soon')),
-                ),
+                builder: (context, state) => const ManagerPaymentsScreen(),
               ),
             ],
           ),
