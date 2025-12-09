@@ -206,6 +206,14 @@ class _BookingCard extends StatelessWidget {
     final statusColor = _getStatusColor(booking.status);
     final isConfirmed = booking.status.toLowerCase() == 'confirmed' ||
         booking.status.toLowerCase() == 'booked';
+    final isPhysical =
+        booking.bookingType == 'physical' || booking.bookingType == 'manual';
+    final customerName = booking.userName ?? 'Customer';
+
+    // Calculate amount to pay
+    final amountPaid = booking.esewaAmount ?? 0;
+    final amountToPay =
+        isPhysical ? booking.amount : (booking.amount - amountPaid);
 
     return Container(
       decoration: BoxDecoration(
@@ -214,7 +222,7 @@ class _BookingCard extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -255,7 +263,7 @@ class _BookingCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -274,12 +282,13 @@ class _BookingCard extends StatelessWidget {
 
           const Divider(height: 1, color: Color(0xFFEEEEEE)),
 
-          // Body: Venue & Time
+          // Body: Venue, Customer & Time
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Venue name
                 Text(
                   booking.venueName,
                   maxLines: 1,
@@ -290,7 +299,51 @@ class _BookingCard extends StatelessWidget {
                     color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 10),
+
+                // Customer name + Booking type badge
+                Row(
+                  children: [
+                    Icon(
+                      isPhysical ? Icons.person : Icons.phone_android,
+                      size: 18,
+                      color: isPhysical ? Colors.green : Colors.amber,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        customerName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isPhysical
+                            ? Colors.green.shade50
+                            : Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isPhysical ? 'Physical' : 'Online',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isPhysical ? Colors.green : Colors.amber.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
+
+                // Time and Amount row
                 Row(
                   children: [
                     Expanded(
@@ -302,12 +355,60 @@ class _BookingCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _InfoItem(
-                        icon: Icons.payments_outlined,
-                        label: 'Amount',
-                        value: 'Rs. ${booking.amount}',
-                        isAmount: true,
-                        valueColor: isConfirmed ? Colors.green : null,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(Icons.payments_outlined,
+                                    size: 16, color: Colors.grey.shade500),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      amountToPay > 0 ? 'Amount Due' : 'Paid',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      amountToPay > 0
+                                          ? 'Rs. ${amountToPay.toStringAsFixed(0)}'
+                                          : 'Rs. ${booking.amount.toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        color: amountToPay > 0
+                                            ? Colors.orange
+                                            : Colors.green,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if (!isPhysical && amountPaid > 0)
+                                      Text(
+                                        'Paid: Rs. ${amountPaid.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -316,7 +417,7 @@ class _BookingCard extends StatelessWidget {
             ),
           ),
 
-          if (isConfirmed) ...[
+          if (isConfirmed && amountToPay > 0) ...[
             const Divider(height: 1, color: Color(0xFFEEEEEE)),
             Padding(
               padding: const EdgeInsets.all(12),
