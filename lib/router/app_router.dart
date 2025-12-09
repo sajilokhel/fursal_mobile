@@ -124,7 +124,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     parentNavigatorKey: _rootNavigatorKey,
                     builder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return ManagerVenueEditScreen(venueId: id);
+                      final tabStr = state.uri.queryParameters['tab'];
+                      final initialTab =
+                          tabStr != null ? int.tryParse(tabStr) : null;
+                      return ManagerVenueEditScreen(
+                          venueId: id, initialTab: initialTab);
                     },
                   ),
                 ],

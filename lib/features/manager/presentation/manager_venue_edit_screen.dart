@@ -13,10 +13,12 @@ import '../../venues/domain/venue_slot.dart';
 
 class ManagerVenueEditScreen extends ConsumerStatefulWidget {
   final String venueId;
+  final int? initialTab;
 
   const ManagerVenueEditScreen({
     super.key,
     required this.venueId,
+    this.initialTab,
   });
 
   @override
@@ -50,7 +52,9 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    final initialIndex = widget.initialTab?.clamp(0, 3) ?? 0;
+    _tabController =
+        TabController(length: 4, vsync: this, initialIndex: initialIndex);
     _nameController = TextEditingController();
     _descriptionController = TextEditingController();
     _priceController = TextEditingController();

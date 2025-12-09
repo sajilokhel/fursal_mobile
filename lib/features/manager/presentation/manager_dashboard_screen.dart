@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../bookings/data/booking_repository.dart';
@@ -232,12 +233,29 @@ class ManagerDashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    // Venue Availability links for each venue
+                    ...myVenues.map((venue) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildQuickActionTile(
+                            context,
+                            title: '${venue.name} - Availability',
+                            subtitle: 'View and manage booking slots',
+                            icon: Icons.calendar_month_outlined,
+                            onTap: () => context.push(
+                                '/manager/venues/edit-venue/${venue.id}?tab=3'),
+                          ),
+                        )),
                     _buildQuickActionTile(
                       context,
                       title: 'Venue Settings',
                       subtitle: 'Update price, description, and amenities',
                       icon: Icons.settings_outlined,
-                      onTap: () {},
+                      onTap: () {
+                        if (myVenues.isNotEmpty) {
+                          context.push(
+                              '/manager/venues/edit-venue/${myVenues.first.id}');
+                        }
+                      },
                     ),
                     const SizedBox(height: 12),
                     _buildQuickActionTile(
