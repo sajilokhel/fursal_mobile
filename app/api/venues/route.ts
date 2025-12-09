@@ -3,16 +3,16 @@ import { db } from "../../lib/firebase-admin";
 import { verifyManager } from "../auth/verify";
 import { z } from "zod";
 
-// Schema for validation - matches Flutter Venue.toMap() output
+// Schema for validation - only name, location (lat/lng), and images are required
 const venueSchema = z.object({
-    id: z.string().optional(), // Allow ID for updates
+    id: z.string().optional(),
     name: z.string().min(1),
     description: z.string().nullable().optional(),
     latitude: z.number(),
     longitude: z.number(),
     address: z.string().nullable().optional(),
-    imageUrls: z.array(z.string()).optional(),
-    pricePerHour: z.number(),
+    imageUrls: z.array(z.string()).min(1), // At least one image required
+    pricePerHour: z.number().optional(),
     attributes: z.record(z.string(), z.string()).optional(),
     createdAt: z.string().optional(),
     managedBy: z.string().optional(),

@@ -167,7 +167,13 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   }
 
   Future<void> _saveVenue() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Only validate form if it exists (user might be on a different tab)
+    final formState = _formKey.currentState;
+    if (formState != null && !formState.validate()) {
+      // Switch to overview tab to show validation errors
+      _tabController.animateTo(0);
+      return;
+    }
 
     final venuesState = ref.read(venuesProvider);
     if (!venuesState.hasValue) return;

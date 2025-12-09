@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -143,14 +142,24 @@ class VenueRepository {
     final token = await user.getIdToken();
     const String baseUrl = 'http://192.168.1.90:3000/api';
 
+    // Include venue ID in the body for updates
+    final body = {
+      'id': venue.id, // Important: Include ID for updates
+      ...venue.toMap(),
+    };
+
+    print('Sending venue update: $body'); // Debug log
+
     final response = await http.post(
       Uri.parse('$baseUrl/venues'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode(venue.toMap()),
+      body: jsonEncode(body),
     );
+
+    print('Response: ${response.statusCode} - ${response.body}'); // Debug log
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Failed to update venue: ${response.body}');
@@ -158,14 +167,34 @@ class VenueRepository {
   }
 
   Future<String> uploadVenueImage(File file, String venueId) async {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final storageRef = FirebaseStorage.instance
-        .ref()
-        .child('venues')
-        .child(venueId)
-        .child('image_$timestamp.jpg');
+    // Use backend upload API instead of direct Firebase Storage
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
 
-    await storageRef.putFile(file);
-    return await storageRef.getDownloadURL();
+    final token = await user.getIdToken();
+    const String baseUrl = 'http://192.168.1.90:3000/api';
+
+    // Create multipart request
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/upload'),
+    );
+
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(await http.MultipartFile.fromPath(
+      'file',
+      file.path,
+      filename: 'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    ));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      return data['url'] as String;
+    } else {
+      throw Exception('Failed to upload image: ${response.body}');
+    }
   }
 }
