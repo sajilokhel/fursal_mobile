@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:io';
 import '../domain/venue.dart';
 import '../domain/review.dart';
@@ -133,7 +136,25 @@ class VenueRepository {
   }
 
   Future<void> updateVenue(Venue venue) async {
-    await _firestore.collection('venues').doc(venue.id).update(venue.toMap());
+    // Use backend API instead of direct Firestore write
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final token = await user.getIdToken();
+    const String baseUrl = 'http://192.168.1.90:3000/api';
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/venues'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(venue.toMap()),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to update venue: ${response.body}');
+    }
   }
 
   Future<String> uploadVenueImage(File file, String venueId) async {

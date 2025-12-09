@@ -42,7 +42,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme(
+      colorScheme: const ColorScheme(
         brightness: Brightness.light,
         primary: accent,
         onPrimary: Colors.white,
@@ -75,7 +75,7 @@ class AppTheme {
         centerTitle: true,
         titleTextStyle: GoogleFonts.inter(
             color: textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
-        iconTheme: IconThemeData(color: textPrimary),
+        iconTheme: const IconThemeData(color: textPrimary),
       ),
       cardTheme: CardThemeData(
         color: surfaceLight,
@@ -123,10 +123,10 @@ class AppTheme {
         errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: danger)),
-        labelStyle: TextStyle(color: textSecondary),
+        labelStyle: const TextStyle(color: textSecondary),
         hintStyle: TextStyle(color: Colors.grey.shade400),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: surfaceLight,
         selectedItemColor: accent,
         unselectedItemColor: textSecondary,
@@ -135,9 +135,9 @@ class AppTheme {
         showSelectedLabels: true,
         showUnselectedLabels: true,
         selectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
         unselectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+            TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
       ),
       dividerTheme: DividerThemeData(color: Colors.grey.shade200, thickness: 1),
     );

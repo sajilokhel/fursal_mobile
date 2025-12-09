@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme.dart';
+import '../data/venue_repository.dart';
+import '../domain/venue.dart';
 
 class CreateVenueScreen extends ConsumerStatefulWidget {
   const CreateVenueScreen({super.key});
@@ -93,7 +95,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
             if (_tabController.index < 3) {
               _tabController.animateTo(_tabController.index + 1);
             } else {
-              // Submit form
+              _submitForm();
             }
           },
           style: ElevatedButton.styleFrom(
@@ -325,5 +327,40 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
         borderSide: const BorderSide(color: AppTheme.primaryColor),
       ),
     );
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) {
+      // Switch to first tab if validation fails there
+      _tabController.animateTo(0);
+      return;
+    }
+
+    try {
+      final venue = Venue(
+        name: _nameController.text,
+        location: _selectedLocation != null
+            ? "${_selectedLocation!.latitude},${_selectedLocation!.longitude}"
+            : "Unknown Location",
+        pricePerHour: double.tryParse(_priceController.text) ?? 0.0,
+        description: _descriptionController.text,
+      );
+
+      final venueId =
+          await ref.read(venueRepositoryProvider).createVenue(venue);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Venue saved successfully! ID: $venueId')),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving venue: $e')),
+        );
+      }
+    }
   }
 }
