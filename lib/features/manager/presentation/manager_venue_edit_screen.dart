@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import '../../../core/theme.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../venues/domain/venue.dart';
+import '../../venues/domain/venue_slot.dart';
 
 class ManagerVenueEditScreen extends ConsumerStatefulWidget {
   final String venueId;
@@ -38,6 +40,13 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
 
+  // Availability tab state - start from today
+  late DateTime _selectedWeekStart;
+
+  // Fixed slot width for horizontal scrolling
+  static const double _slotWidth = 80.0;
+  static const double _timeColumnWidth = 50.0;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +55,9 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
     _descriptionController = TextEditingController();
     _priceController = TextEditingController();
     _addressController = TextEditingController();
+    // Start from today (strip time)
+    final now = DateTime.now();
+    _selectedWeekStart = DateTime(now.year, now.month, now.day);
   }
 
   @override
@@ -539,7 +551,447 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   }
 
   Widget _buildAvailabilityTab(Venue venue) {
-    return const Center(child: Text('Availability Scheduler - Coming Soon'));
+    final venueSlotsAsync = ref.watch(venueSlotsProvider(venue.id));
+
+    return Column(
+      children: [
+        // Header with week navigation
+        _buildWeekHeader(),
+        // Legend
+        _buildSlotLegend(),
+        // Slot grid
+        Expanded(
+          child: venueSlotsAsync.when(
+            data: (venueSlots) => venueSlots != null
+                ? _buildSlotGrid(venueSlots)
+                : const Center(child: Text('No slot data available')),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error: $err')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeekHeader() {
+    final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
+    final dateFormat = DateFormat('MMM d');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () => setState(() {
+              _selectedWeekStart =
+                  _selectedWeekStart.subtract(const Duration(days: 7));
+            }),
+          ),
+          Text(
+            '${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}, ${_selectedWeekStart.year}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: () => setState(() {
+              _selectedWeekStart =
+                  _selectedWeekStart.add(const Duration(days: 7));
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlotLegend() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildLegendItem('Available', Colors.green.shade100, Colors.green),
+          const SizedBox(width: 16),
+          _buildLegendItem('Booked', Colors.amber.shade100, Colors.amber),
+          const SizedBox(width: 16),
+          _buildLegendItem('Physical', Colors.green, Colors.green),
+          const SizedBox(width: 16),
+          _buildLegendItem('Blocked', Colors.red.shade100, Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color bgColor, Color borderColor) {
+    return Row(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border.all(color: borderColor, width: 2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildSlotGrid(VenueSlotData venueSlots) {
+    final config = venueSlots.config;
+    final timeSlots = _generateTimeSlots(config);
+    final weekDays =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final today = DateTime.now();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate slot width based on available space
+        // Use fixed width for scrolling, or fit to screen if possible
+        final availableWidth =
+            constraints.maxWidth - _timeColumnWidth - 16; // 16 for padding
+        final fittedSlotWidth = availableWidth / 7;
+        final useFixedWidth =
+            fittedSlotWidth < 60; // If too small, use horizontal scroll
+        final slotWidth = useFixedWidth ? _slotWidth : fittedSlotWidth;
+        final totalWidth = _timeColumnWidth + (7 * slotWidth) + 16;
+
+        Widget buildContent() {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Day headers
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(width: _timeColumnWidth), // Time column spacer
+                  ...weekDays.map((day) {
+                    final isToday = day.year == today.year &&
+                        day.month == today.month &&
+                        day.day == today.day;
+                    final isOperating =
+                        config.daysOfWeek.contains(day.weekday % 7);
+                    return SizedBox(
+                      width: slotWidth,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color: isToday ? Colors.orange : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              DateFormat('E').format(day),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isToday
+                                    ? Colors.white
+                                    : (isOperating
+                                        ? Colors.black
+                                        : Colors.grey),
+                              ),
+                            ),
+                            Text(
+                              day.day.toString(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isToday
+                                    ? Colors.white
+                                    : (isOperating
+                                        ? Colors.black
+                                        : Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+              // Time slots grid
+              ...timeSlots.map((time) => Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: _timeColumnWidth,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            time,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                      ...weekDays.map((day) {
+                        final dateStr = DateFormat('yyyy-MM-dd').format(day);
+                        final isOperating =
+                            config.daysOfWeek.contains(day.weekday % 7);
+
+                        if (!isOperating) {
+                          return SizedBox(
+                            width: slotWidth,
+                            child: Container(
+                              height: 44,
+                              margin: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: const Center(
+                                child: Text('No slots',
+                                    style: TextStyle(
+                                        color: Colors.grey, fontSize: 10)),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final status =
+                            _getSlotStatus(venueSlots, dateStr, time);
+                        return SizedBox(
+                          width: slotWidth,
+                          child: GestureDetector(
+                            onTap: () =>
+                                _onSlotTap(venueSlots, dateStr, time, status),
+                            child: _buildSlotCell(time, status),
+                          ),
+                        );
+                      }),
+                    ],
+                  )),
+            ],
+          );
+        }
+
+        if (useFixedWidth) {
+          // Needs horizontal scroll
+          return SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(
+                width: totalWidth,
+                child: buildContent(),
+              ),
+            ),
+          );
+        } else {
+          // Fits on screen, no horizontal scroll needed
+          return SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: buildContent(),
+          );
+        }
+      },
+    );
+  }
+
+  List<String> _generateTimeSlots(VenueConfig config) {
+    final slots = <String>[];
+    final startParts = config.startTime.split(':');
+    final endParts = config.endTime.split(':');
+
+    int startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+    final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+
+    while (startMinutes < endMinutes) {
+      final hours = startMinutes ~/ 60;
+      final mins = startMinutes % 60;
+      slots.add(
+          '${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}');
+      startMinutes += config.slotDuration;
+    }
+    return slots;
+  }
+
+  String _getSlotStatus(VenueSlotData data, String date, String time) {
+    // Check blocked
+    if (data.blocked.any((s) => s.date == date && s.startTime == time)) {
+      return 'blocked';
+    }
+    // Check booked
+    final booking = data.bookings
+        .where((s) =>
+            s.date == date && s.startTime == time && s.status != 'cancelled')
+        .firstOrNull;
+    if (booking != null) {
+      return booking.bookingType == 'physical' ? 'physical' : 'booked';
+    }
+    // Check held
+    final now = DateTime.now();
+    if (data.held.any((s) =>
+        s.date == date &&
+        s.startTime == time &&
+        s.holdExpiresAt.toDate().isAfter(now))) {
+      return 'held';
+    }
+    // Check reserved
+    if (data.reserved.any((s) => s.date == date && s.startTime == time)) {
+      return 'reserved';
+    }
+    return 'available';
+  }
+
+  Widget _buildSlotCell(String time, String status) {
+    Color bgColor;
+    Color borderColor;
+    String label;
+
+    switch (status) {
+      case 'blocked':
+        bgColor = Colors.red.shade50;
+        borderColor = Colors.red;
+        label = 'Blocked';
+        break;
+      case 'booked':
+        bgColor = Colors.amber.shade100;
+        borderColor = Colors.amber.shade700;
+        label = 'Booked';
+        break;
+      case 'physical':
+        bgColor = Colors.green;
+        borderColor = Colors.green.shade700;
+        label = 'Physical';
+        break;
+      case 'held':
+        bgColor = Colors.orange.shade100;
+        borderColor = Colors.orange;
+        label = 'Held';
+        break;
+      case 'reserved':
+        bgColor = Colors.purple.shade100;
+        borderColor = Colors.purple;
+        label = 'Reserved';
+        break;
+      default:
+        bgColor = Colors.green.shade50;
+        borderColor = Colors.green.shade300;
+        label = 'Available';
+    }
+
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(time,
+                style: TextStyle(
+                    fontSize: 10,
+                    color:
+                        status == 'physical' ? Colors.white : Colors.black87)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 8,
+                    color:
+                        status == 'physical' ? Colors.white70 : Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onSlotTap(VenueSlotData data, String date, String time, String status) {
+    // Show action dialog based on status
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text('Slot: $date at $time'),
+              subtitle: Text('Status: ${status.toUpperCase()}'),
+            ),
+            const Divider(),
+            if (status == 'available') ...[
+              ListTile(
+                leading: const Icon(Icons.block, color: Colors.red),
+                title: const Text('Block this slot'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _blockSlot(date, time);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_add, color: Colors.green),
+                title: const Text('Create physical booking'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  // TODO: Implement physical booking
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Physical booking - Coming soon')),
+                  );
+                },
+              ),
+            ],
+            if (status == 'blocked')
+              ListTile(
+                leading: const Icon(Icons.check_circle, color: Colors.green),
+                title: const Text('Unblock this slot'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _unblockSlot(date, time);
+                },
+              ),
+            if (status == 'booked' || status == 'physical')
+              ListTile(
+                leading: const Icon(Icons.info, color: Colors.blue),
+                title: const Text('View booking details'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  // TODO: Navigate to booking details
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Booking details - Coming soon')),
+                  );
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _blockSlot(String date, String time) async {
+    // TODO: Implement via backend API
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text('Blocking slot $date $time - API integration needed')),
+    );
+  }
+
+  Future<void> _unblockSlot(String date, String time) async {
+    // TODO: Implement via backend API
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content:
+              Text('Unblocking slot $date $time - API integration needed')),
+    );
   }
 
   Widget _buildTextField({
