@@ -5,7 +5,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
+import 'dart:convert';
 import '../../../core/theme.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../venues/domain/venue.dart';
@@ -940,11 +943,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
                 title: const Text('Create physical booking'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  // TODO: Implement physical booking
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Physical booking - Coming soon')),
-                  );
+                  _showPhysicalBookingDialog(date, time);
                 },
               ),
             ],
@@ -963,11 +962,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
                 title: const Text('View booking details'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  // TODO: Navigate to booking details
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Booking details - Coming soon')),
-                  );
+                  _showBookingDetails(data, date, time);
                 },
               ),
             ListTile(
@@ -981,21 +976,324 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
     );
   }
 
-  Future<void> _blockSlot(String date, String time) async {
-    // TODO: Implement via backend API
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text('Blocking slot $date $time - API integration needed')),
+  void _showBookingDetails(VenueSlotData data, String date, String time) {
+    // Find the booking for this slot
+    final booking = data.bookings.firstWhere(
+      (b) => b.date == date && b.startTime == time,
+      orElse: () => BookedSlot(date: date, startTime: time),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              booking.bookingType == 'physical'
+                  ? Icons.person
+                  : Icons.phone_android,
+              color: booking.bookingType == 'physical'
+                  ? Colors.green
+                  : Colors.amber,
+            ),
+            const SizedBox(width: 8),
+            Text(booking.bookingType == 'physical'
+                ? 'Physical Booking'
+                : 'Online Booking'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Date', date),
+              _buildDetailRow('Time', time),
+              _buildDetailRow(
+                  'Status', (booking.status ?? 'confirmed').toUpperCase()),
+              if (booking.customerName != null)
+                _buildDetailRow('Customer', booking.customerName!),
+              if (booking.customerPhone != null &&
+                  booking.customerPhone!.isNotEmpty)
+                _buildDetailRow('Phone', booking.customerPhone!),
+              if (booking.notes != null && booking.notes!.isNotEmpty)
+                _buildDetailRow('Notes', booking.notes!),
+              if (booking.bookingId != null)
+                _buildDetailRow('Booking ID', booking.bookingId!),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
-  Future<void> _unblockSlot(String date, String time) async {
-    // TODO: Implement via backend API
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content:
-              Text('Unblocking slot $date $time - API integration needed')),
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _blockSlot(String date, String time) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login first')),
+        );
+        return;
+      }
+
+      final token = await user.getIdToken();
+      const baseUrl =
+          'http://192.168.1.90:3000'; // TODO: Use environment config
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/slots/block'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'venueId': widget.venueId,
+          'date': date,
+          'startTime': time,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Refresh the venue slots
+        ref.invalidate(venueSlotsProvider(widget.venueId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Slot $date $time blocked successfully')),
+          );
+        }
+      } else {
+        final error =
+            jsonDecode(response.body)['error'] ?? 'Failed to block slot';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _unblockSlot(String date, String time) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login first')),
+        );
+        return;
+      }
+
+      final token = await user.getIdToken();
+      const baseUrl = 'http://192.168.1.90:3000';
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/slots/unblock'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'venueId': widget.venueId,
+          'date': date,
+          'startTime': time,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ref.invalidate(venueSlotsProvider(widget.venueId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Slot $date $time unblocked successfully')),
+          );
+        }
+      } else {
+        final error =
+            jsonDecode(response.body)['error'] ?? 'Failed to unblock slot';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showPhysicalBookingDialog(String date, String time) async {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final notesController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Physical Booking - $date $time'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Customer Name *',
+                  hintText: 'Enter customer name',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone',
+                  hintText: 'Enter phone number',
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  hintText: 'Optional notes',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Customer name is required')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Create Booking'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      await _createPhysicalBooking(
+        date,
+        time,
+        nameController.text,
+        phoneController.text,
+        notesController.text,
+      );
+    }
+  }
+
+  Future<void> _createPhysicalBooking(
+    String date,
+    String startTime,
+    String customerName,
+    String customerPhone,
+    String notes,
+  ) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final token = await user.getIdToken();
+      const baseUrl = 'http://192.168.1.90:3000';
+
+      // Calculate end time (1 hour later by default)
+      final startParts = startTime.split(':');
+      final endHour = (int.parse(startParts[0]) + 1) % 24;
+      final endTime = '${endHour.toString().padLeft(2, '0')}:${startParts[1]}';
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/bookings/physical'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'venueId': widget.venueId,
+          'date': date,
+          'startTime': startTime,
+          'endTime': endTime,
+          'customerName': customerName,
+          'customerPhone': customerPhone,
+          'notes': notes,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ref.invalidate(venueSlotsProvider(widget.venueId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Physical booking created for $customerName')),
+          );
+        }
+      } else {
+        final error =
+            jsonDecode(response.body)['error'] ?? 'Failed to create booking';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildTextField({

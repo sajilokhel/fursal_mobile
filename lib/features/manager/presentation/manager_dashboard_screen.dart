@@ -54,12 +54,12 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 // Wait, checking Booking model is better.
                 // For now, let's look at available fields in memory.
 
-                // Correction: The User Request image showed "Manual reservations".
-                // Let's check if we can infer from data.
+                // Physical vs Online
+                // Physical bookings have bookingType 'manual' or 'physical'
+                final isPhysical = booking.bookingType == 'manual' ||
+                    booking.bookingType == 'physical';
 
-                final isManual = booking.bookingType == 'manual';
-
-                if (isManual) {
+                if (isPhysical) {
                   physicalBookings++;
                 } else {
                   onlineBookings++;
@@ -179,41 +179,164 @@ class ManagerDashboardScreen extends ConsumerWidget {
                             itemCount: bookings.take(5).length,
                             itemBuilder: (context, index) {
                               final booking = bookings[index];
+                              final isPhysical =
+                                  booking.bookingType == 'physical' ||
+                                      booking.bookingType == 'manual';
+                              final customerName =
+                                  booking.userName ?? 'Customer';
+
+                              // Calculate amount to pay
+                              // Physical: full rate, Online: remaining 83.33%
+                              final amountPaid = booking.esewaAmount ?? 0;
+                              final amountToPay = isPhysical
+                                  ? booking.amount
+                                  : (booking.amount - amountPaid);
+
                               return Card(
                                 elevation: 0,
                                 margin: const EdgeInsets.only(bottom: 8),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
                                   side: BorderSide(color: Colors.grey.shade200),
                                 ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.blue.shade50,
-                                    child: Icon(Icons.person_outline,
-                                        color: Colors.blue.shade400, size: 20),
-                                  ),
-                                  title: Text(booking.venueName,
-                                      style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold)),
-                                  subtitle: Text(
-                                      '${booking.date} • ${booking.startTime}',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600)),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text('Rs. ${booking.amount}',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13)),
-                                      Text(booking.status,
-                                          style: TextStyle(
-                                              fontSize: 11,
+                                      // Top row: Venue + Status
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              booking.venueName,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
                                               color: _getStatusColor(
-                                                  booking.status))),
+                                                      booking.status)
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              booking.status.toUpperCase(),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: _getStatusColor(
+                                                    booking.status),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Customer + Booking type
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            isPhysical
+                                                ? Icons.person
+                                                : Icons.phone_android,
+                                            size: 16,
+                                            color: isPhysical
+                                                ? Colors.green
+                                                : Colors.amber,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            customerName,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isPhysical
+                                                  ? Colors.green.shade50
+                                                  : Colors.amber.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              isPhysical
+                                                  ? 'Physical'
+                                                  : 'Online',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: isPhysical
+                                                    ? Colors.green
+                                                    : Colors.amber.shade700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Date/Time + Amount
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(Icons.calendar_today,
+                                                  size: 14,
+                                                  color: Colors.grey.shade600),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '${booking.date} • ${booking.startTime}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                amountToPay > 0
+                                                    ? 'Due: Rs. ${amountToPay.toStringAsFixed(0)}'
+                                                    : 'Paid',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: amountToPay > 0
+                                                      ? Colors.orange
+                                                      : Colors.green,
+                                                ),
+                                              ),
+                                              if (!isPhysical && amountPaid > 0)
+                                                Text(
+                                                  'Paid: Rs. ${amountPaid.toStringAsFixed(0)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.green,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
