@@ -17,6 +17,8 @@ class ManagerScanQRScreen extends ConsumerStatefulWidget {
 class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
   final MobileScannerController controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+    torchEnabled: false,
   );
   bool _isProcessing = false;
 
@@ -297,21 +299,37 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          MobileScanner(
-            controller: controller,
-            onDetect: _handleBarcode,
-            errorBuilder: (context, error) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error, color: Colors.red, size: 40),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Camera Error: ${error.errorCode}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ],
+          ValueListenableBuilder<MobileScannerState>(
+            valueListenable: controller,
+            builder: (context, state, child) {
+              final isFront = state.cameraDirection == CameraFacing.front;
+              // If front camera, mirror the preview horizontally so it feels natural
+              final transform = isFront
+                  ? Matrix4.rotationY(3.14159) // pi
+                  : Matrix4.identity();
+
+              // When mirroring, we rotate around center.
+              return Transform(
+                alignment: Alignment.center,
+                transform: transform,
+                child: MobileScanner(
+                  controller: controller,
+                  onDetect: _handleBarcode,
+                  errorBuilder: (context, error) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 40),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Camera Error: ${error.errorCode}',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               );
             },
