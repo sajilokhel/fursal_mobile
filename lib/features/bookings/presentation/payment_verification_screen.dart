@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/payment_service.dart';
 import '../data/checkout_state.dart';
+import '../../../../core/services/notification_service.dart';
 
 class PaymentVerificationScreen extends ConsumerStatefulWidget {
   final String transactionUuid;
@@ -64,6 +65,25 @@ class _PaymentVerificationScreenState
             _isSuccess = true;
             _bookingData = resp['bookingData'];
             _refId = resp['refId'];
+
+            // Schedule notification
+            if (_bookingData != null) {
+              try {
+                final dateStr = _bookingData!['date'] as String;
+                final timeStr = _bookingData!['startTime'] as String;
+                // Assuming date is YYYY-MM-DD and time is HH:MM
+                final dateTimeStr = '$dateStr $timeStr:00';
+                final bookingTime = DateTime.parse(dateTimeStr);
+
+                NotificationService().scheduleBookingNotification(
+                  id: bookingTime.millisecondsSinceEpoch ~/ 1000,
+                  venueName: widget.venueName ?? 'Futsal Venue',
+                  bookingTime: bookingTime,
+                );
+              } catch (e) {
+                print('Failed to schedule notification: $e');
+              }
+            }
           });
         }
       } else {

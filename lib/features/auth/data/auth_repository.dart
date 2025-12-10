@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../domain/auth_user.dart';
+import '../../../core/config.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
@@ -135,8 +136,8 @@ class AuthRepository {
       {String? displayName, String? photoURL}) async {
     try {
       final token = await user.getIdToken();
-      // For physical device, use your machine's IP. For Android emulator use 10.0.2.2
-      const String baseUrl = 'http://192.168.1.90:3000/api';
+      // For physical device, use your machine's IP, configured in AppConfig
+      final baseUrl = AppConfig.apiUrl;
 
       final Map<String, dynamic> body = {
         'uid': user.uid,

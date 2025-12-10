@@ -7,6 +7,7 @@ import 'dart:io';
 import '../domain/venue.dart';
 import '../domain/review.dart';
 import '../domain/venue_slot.dart';
+import '../../../core/config.dart';
 
 final venueRepositoryProvider = Provider<VenueRepository>((ref) {
   return VenueRepository(FirebaseFirestore.instance);
@@ -140,7 +141,7 @@ class VenueRepository {
     if (user == null) throw Exception('User not authenticated');
 
     final token = await user.getIdToken();
-    const String baseUrl = 'http://192.168.1.90:3000/api';
+    final baseUrl = AppConfig.apiUrl;
 
     // Include venue ID in the body for updates
     final body = {
@@ -172,7 +173,7 @@ class VenueRepository {
     if (user == null) throw Exception('User not authenticated');
 
     final token = await user.getIdToken();
-    const String baseUrl = 'http://192.168.1.90:3000/api';
+    final baseUrl = AppConfig.apiUrl;
 
     // Create multipart request
     final request = http.MultipartRequest(

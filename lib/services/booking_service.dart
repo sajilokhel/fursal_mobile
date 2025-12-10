@@ -36,10 +36,12 @@ class BookingService {
       'userId': user.uid,
     });
 
-    final resp = await _postWithRedirects(uri, headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $idToken',
-    }, body: body);
+    final resp = await _postWithRedirects(uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: body);
 
     await LoggerService().info('holdSlot: response', meta: {
       'status': resp.statusCode,
@@ -48,20 +50,26 @@ class BookingService {
 
     // If slot not found, try again without slotId (some backends identify slots by venue/date/time)
     if (resp.statusCode == 404 && resp.body.contains('Slot not found')) {
-      await LoggerService().info('holdSlot: slot not found with slotId, retrying without slotId', meta: {
-        'originalBody': bodyMap,
-        'status': resp.statusCode,
-        'body': resp.body,
-      });
+      await LoggerService().info(
+          'holdSlot: slot not found with slotId, retrying without slotId',
+          meta: {
+            'originalBody': bodyMap,
+            'status': resp.statusCode,
+            'body': resp.body,
+          });
 
-      final fallbackBodyMap = Map<String, dynamic>.from(bodyMap)..remove('slotId');
+      final fallbackBodyMap = Map<String, dynamic>.from(bodyMap)
+        ..remove('slotId');
       final fallbackBody = jsonEncode(fallbackBodyMap);
-      final resp2 = await _postWithRedirects(uri, headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken',
-      }, body: fallbackBody);
+      final resp2 = await _postWithRedirects(uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+          body: fallbackBody);
 
-      await LoggerService().info('holdSlot: response (retry without slotId)', meta: {
+      await LoggerService()
+          .info('holdSlot: response (retry without slotId)', meta: {
         'status': resp2.statusCode,
         'body': resp2.body,
       });
@@ -102,10 +110,12 @@ class BookingService {
       'userId': user.uid,
     });
 
-    final resp = await _postWithRedirects(uri, headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $idToken',
-    }, body: jsonEncode(booking));
+    final resp = await _postWithRedirects(uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode(booking));
 
     await LoggerService().info('createBooking: response', meta: {
       'status': resp.statusCode,
@@ -154,16 +164,20 @@ class BookingService {
       'userId': user.uid,
     });
 
-    final resp = await _postWithRedirects(uri, headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $idToken',
-    }, body: body);
+    final resp = await _postWithRedirects(uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: body);
 
     await LoggerService().info('createBookingViaApi: response', meta: {
       'status': resp.statusCode,
       'body': resp.body,
     });
-    if (resp.statusCode != 200 && resp.statusCode != 201 && resp.statusCode != 201) {
+    if (resp.statusCode != 200 &&
+        resp.statusCode != 201 &&
+        resp.statusCode != 201) {
       await LoggerService().error('createBookingViaApi failed', meta: {
         'status': resp.statusCode,
         'body': resp.body,
@@ -171,7 +185,8 @@ class BookingService {
       String msg = resp.body;
       try {
         final parsed = jsonDecode(resp.body);
-        if (parsed is Map && parsed['error'] != null) msg = parsed['error'].toString();
+        if (parsed is Map && parsed['error'] != null)
+          msg = parsed['error'].toString();
       } catch (_) {}
       throw Exception('Create booking failed: ${resp.statusCode} $msg');
     }
@@ -181,21 +196,76 @@ class BookingService {
 
   /// Helper to POST while following redirect locations up to [maxRedirects].
   Future<http.Response> _postWithRedirects(Uri uri,
-      {required Map<String, String> headers, required String body, int maxRedirects = 5}) async {
+      {required Map<String, String> headers,
+      required String body,
+      int maxRedirects = 5}) async {
     Uri current = uri;
     for (int i = 0; i <= maxRedirects; i++) {
       final resp = await http.post(current, headers: headers, body: body);
-      if (resp.statusCode == 307 || resp.statusCode == 302 || resp.statusCode == 301) {
+      if (resp.statusCode == 307 ||
+          resp.statusCode == 302 ||
+          resp.statusCode == 301) {
         final loc = resp.headers['location'];
         if (loc == null) return resp;
         // Resolve relative redirect
-        current = Uri.parse(loc).isAbsolute ? Uri.parse(loc) : current.resolve(loc);
-        await LoggerService().info('redirect', meta: {'to': current.toString(), 'code': resp.statusCode});
+        current =
+            Uri.parse(loc).isAbsolute ? Uri.parse(loc) : current.resolve(loc);
+        await LoggerService().info('redirect',
+            meta: {'to': current.toString(), 'code': resp.statusCode});
         // continue loop to re-post to new location
         continue;
       }
       return resp;
     }
     throw Exception('Too many redirects');
+  }
+
+  Future<Map<String, dynamic>> applyCoupon({
+    required String bookingId,
+    required String code,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    final idToken = await user.getIdToken();
+    final uri =
+        Uri.parse('${AppConfig.backendBaseUrl}/api/bookings/apply-coupon');
+    final bodyMap = {
+      'bookingId': bookingId,
+      'code': code,
+    };
+    final body = jsonEncode(bodyMap);
+
+    await LoggerService().info('applyCoupon: request', meta: {
+      'uri': uri.toString(),
+      'body': bodyMap,
+    });
+
+    final resp = await _postWithRedirects(uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: body);
+
+    await LoggerService().info('applyCoupon: response', meta: {
+      'status': resp.statusCode,
+      'body': resp.body,
+    });
+
+    if (resp.statusCode != 200) {
+      String msg = resp.body;
+      try {
+        final parsed = jsonDecode(resp.body);
+        if (parsed is Map && parsed['message'] != null) {
+          msg = parsed['message'];
+        } else if (parsed is Map && parsed['error'] != null) {
+          msg = parsed['error'];
+        }
+      } catch (_) {}
+      throw Exception(msg);
+    }
+
+    return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 }

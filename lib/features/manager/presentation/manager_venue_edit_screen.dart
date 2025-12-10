@@ -10,9 +10,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../../../core/theme.dart';
+import '../../../core/config.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../venues/domain/venue.dart';
 import '../../venues/domain/venue_slot.dart';
+
+import 'widgets/blocking_reason_dialog.dart';
 
 class ManagerVenueEditScreen extends ConsumerStatefulWidget {
   final String venueId;
@@ -933,9 +936,17 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
               ListTile(
                 leading: const Icon(Icons.block, color: Colors.red),
                 title: const Text('Block this slot'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(ctx);
-                  _blockSlot(date, time);
+                  final reason = await showDialog<String>(
+                    context: context,
+                    builder: (context) => const BlockingReasonDialog(),
+                  );
+                  // If dialog is cancelled (returns null), do nothing.
+                  // If it returns a string (even empty), proceed.
+                  if (reason != null) {
+                    _blockSlot(date, time, reason: reason);
+                  }
                 },
               ),
               ListTile(
@@ -1057,7 +1068,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
     );
   }
 
-  Future<void> _blockSlot(String date, String time) async {
+  Future<void> _blockSlot(String date, String time, {String? reason}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -1068,11 +1079,10 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
       }
 
       final token = await user.getIdToken();
-      const baseUrl =
-          'http://192.168.1.90:3000'; // TODO: Use environment config
+      final baseUrl = AppConfig.apiUrl;
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/slots/block'),
+        Uri.parse('$baseUrl/slots/block'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -1081,6 +1091,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
           'venueId': widget.venueId,
           'date': date,
           'startTime': time,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
         }),
       );
 
@@ -1121,10 +1132,10 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
       }
 
       final token = await user.getIdToken();
-      const baseUrl = 'http://192.168.1.90:3000';
+      final baseUrl = AppConfig.apiUrl;
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/slots/unblock'),
+        Uri.parse('$baseUrl/slots/unblock'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -1246,7 +1257,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
       if (user == null) return;
 
       final token = await user.getIdToken();
-      const baseUrl = 'http://192.168.1.90:3000';
+      final baseUrl = AppConfig.apiUrl;
 
       // Calculate end time (1 hour later by default)
       final startParts = startTime.split(':');
@@ -1254,7 +1265,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
       final endTime = '${endHour.toString().padLeft(2, '0')}:${startParts[1]}';
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/bookings/physical'),
+        Uri.parse('$baseUrl/bookings/physical'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

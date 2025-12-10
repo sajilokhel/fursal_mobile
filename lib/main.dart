@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
+import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +17,7 @@ void main() async {
   } catch (e, st) {
     debugPrint('Warning: failed to load .env: $e\n$st');
   }
-  
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -25,6 +26,9 @@ void main() async {
     // Fallback or error logging if firebase fails to init (e.g. missing keys)
     debugPrint('Firebase initialization failed: $e');
   }
+
+  // Initialize notifications
+  await NotificationService().init();
 
   runApp(const ProviderScope(child: FursalApp()));
 }

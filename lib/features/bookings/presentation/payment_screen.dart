@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:esewa_flutter/esewa_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../data/checkout_state.dart';
+import '../../../../services/booking_service.dart';
+import '../../../../services/payment_service.dart';
 import 'payment_verification_screen.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
@@ -14,6 +16,82 @@ class PaymentScreen extends ConsumerStatefulWidget {
 
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isProcessing = false;
+  final TextEditingController _couponController = TextEditingController();
+  bool _isApplyingCoupon = false;
+  String? _appliedCoupon;
+  double? _discountAmount;
+
+  @override
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
+
+    setState(() => _isApplyingCoupon = true);
+
+    try {
+      final checkoutState = ref.read(checkoutProvider);
+      final bookingId = checkoutState.booking?.id;
+      if (bookingId == null) throw Exception('Booking ID not found');
+
+      final result = await BookingService().applyCoupon(
+        bookingId: bookingId,
+        code: code,
+      );
+
+      final _ = (result['newTotal'] as num).toDouble();
+      final discount = (result['discount'] as num).toDouble();
+      final msg = result['message'] ?? 'Coupon applied!';
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.green),
+        );
+
+        setState(() {
+          _appliedCoupon = code;
+          _discountAmount = discount;
+        });
+      }
+
+      // Re-initiate payment to get new signature for updated amount
+      await _reInitiatePayment(bookingId);
+    } catch (e) {
+      if (mounted) {
+        String msg = e.toString().replaceAll('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isApplyingCoupon = false);
+    }
+  }
+
+  Future<void> _reInitiatePayment(String bookingId) async {
+    try {
+      final paymentService = PaymentService();
+      final paymentResp = await paymentService.initiatePayment(
+        bookingId: bookingId,
+      );
+      final paymentParams =
+          paymentResp['paymentParams'] as Map<String, dynamic>;
+
+      ref.read(checkoutProvider.notifier).setPaymentParams(
+            paymentParams: paymentParams,
+            transactionUuid: paymentParams['transactionUuid'] as String,
+            signature: paymentResp['signature'] as String,
+            productCode: paymentParams['productCode'] as String,
+          );
+    } catch (e) {
+      // Handle re-initiation error
+      debugPrint("Re-initiation failed: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +185,97 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
                     const SizedBox(height: 24),
 
+                    // Coupon Section
+                    _buildSectionTitle('Promo Code'),
+                    const SizedBox(height: 8),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _couponController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Enter coupon code',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade100,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 12),
+                                    ),
+                                    enabled: _appliedCoupon == null,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (_appliedCoupon == null)
+                                  ElevatedButton(
+                                    onPressed:
+                                        _isApplyingCoupon ? null : _applyCoupon,
+                                    style: ElevatedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: _isApplyingCoupon
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white))
+                                        : const Text('Apply'),
+                                  )
+                                else
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      // Remove coupon logic (for now just clear)
+                                      setState(() {
+                                        _appliedCoupon = null;
+                                        _discountAmount = null;
+                                        _couponController.clear();
+                                      });
+                                      // TODO: Call backend to remove coupon if needed
+                                    },
+                                    icon: const Icon(Icons.close,
+                                        color: Colors.red),
+                                    label: const Text('Remove',
+                                        style: TextStyle(color: Colors.red)),
+                                  ),
+                              ],
+                            ),
+                            if (_appliedCoupon != null) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.check_circle,
+                                      size: 16, color: Colors.green),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                      'Coupon "$_appliedCoupon" applied successfully',
+                                      style: const TextStyle(
+                                          color: Colors.green, fontSize: 12)),
+                                ],
+                              )
+                            ]
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
                     // Payment Details Card
                     _buildSectionTitle('Payment Details'),
                     const SizedBox(height: 8),
@@ -124,6 +293,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                               'Total Booking Amount',
                               'Rs. ${booking.amount.toStringAsFixed(0)}',
                             ),
+                            if (_discountAmount != null &&
+                                _discountAmount! > 0) ...[
+                              const SizedBox(height: 12),
+                              _buildPaymentRow(
+                                'Discount',
+                                '- Rs. ${_discountAmount!.toStringAsFixed(0)}',
+                                color: Colors.green,
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             _buildPaymentRow(
                               'Advance Payment (16.66%)',
@@ -326,7 +504,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 
-  Widget _buildPaymentRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildPaymentRow(String label, String value,
+      {bool isTotal = false, Color? color}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -337,7 +516,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 14,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
-            color: isTotal ? Colors.green.shade700 : Colors.black87,
+            color: color ?? (isTotal ? Colors.green.shade700 : Colors.black87),
           ),
         ),
       ],
