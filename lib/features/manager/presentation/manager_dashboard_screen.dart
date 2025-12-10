@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../bookings/data/booking_repository.dart';
+import 'widgets/stat_card.dart';
+import 'widgets/quick_action_tile.dart';
+import 'widgets/status_helpers.dart';
 
 class ManagerDashboardScreen extends ConsumerWidget {
   const ManagerDashboardScreen({super.key});
@@ -42,20 +45,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
               int onlineBookings = 0;
 
               for (var booking in bookings) {
-                // Online vs Physical
-                // Note: booking.isManual is not explicitly on Booking model yet?
-                // Checking bookingType field if exists or inference
-                // Assuming 'mobile' is online, 'manual' is physical
-                // or check if userId is empty/special for manual?
-                // For now, looking for a way to distinguish.
-                // Looking at updateBookingStatus, manual bookings might set 'bookingType': 'manual'
-                // Let's assume booking.bookingType exists or similar.
-                // If not, we might need to update Booking model.
-                // Wait, checking Booking model is better.
-                // For now, let's look at available fields in memory.
-
                 // Physical vs Online
-                // Physical bookings have bookingType 'manual' or 'physical'
                 final isPhysical = booking.bookingType == 'manual' ||
                     booking.bookingType == 'physical';
 
@@ -101,36 +91,32 @@ class ManagerDashboardScreen extends ConsumerWidget {
                       mainAxisSpacing: 16,
                       childAspectRatio: 1.4,
                       children: [
-                        _buildStatCard(
-                          context,
+                        StatCard(
                           title: 'Total Revenue',
                           value: 'Rs. ${totalRevenue.toStringAsFixed(0)}',
                           icon: Icons.account_balance_wallet_outlined,
-                          color: Colors.blue.shade50,
+                          backgroundColor: Colors.blue.shade50,
                           iconColor: Colors.blue,
                         ),
-                        _buildStatCard(
-                          context,
+                        StatCard(
                           title: 'Active Bookings',
                           value: '$activeBookings',
                           icon: Icons.calendar_today_outlined,
-                          color: Colors.green.shade50,
+                          backgroundColor: Colors.green.shade50,
                           iconColor: Colors.green,
                         ),
-                        _buildStatCard(
-                          context,
+                        StatCard(
                           title: 'Physical Bookings',
                           value: '$physicalBookings',
                           icon: Icons.storefront_outlined,
-                          color: Colors.orange.shade50,
+                          backgroundColor: Colors.orange.shade50,
                           iconColor: Colors.orange,
                         ),
-                        _buildStatCard(
-                          context,
+                        StatCard(
                           title: 'Online Bookings',
                           value: '$onlineBookings',
                           icon: Icons.language_outlined,
-                          color: Colors.purple.shade50,
+                          backgroundColor: Colors.purple.shade50,
                           iconColor: Colors.purple,
                         ),
                       ],
@@ -186,7 +172,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
                                   booking.userName ?? 'Customer';
 
                               // Calculate amount to pay
-                              // Physical: full rate, Online: remaining 83.33%
                               final amountPaid = booking.esewaAmount ?? 0;
                               final amountToPay = isPhysical
                                   ? booking.amount
@@ -224,9 +209,9 @@ class ManagerDashboardScreen extends ConsumerWidget {
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 8, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: _getStatusColor(
-                                                      booking.status)
-                                                  .withValues(alpha: 0.1),
+                                              color:
+                                                  getStatusColor(booking.status)
+                                                      .withValues(alpha: 0.1),
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                             ),
@@ -235,7 +220,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
-                                                color: _getStatusColor(
+                                                color: getStatusColor(
                                                     booking.status),
                                               ),
                                             ),
@@ -359,8 +344,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                     // Venue Availability links for each venue
                     ...myVenues.map((venue) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildQuickActionTile(
-                            context,
+                          child: QuickActionTile(
                             title: '${venue.name} - Availability',
                             subtitle: 'View and manage booking slots',
                             icon: Icons.calendar_month_outlined,
@@ -368,8 +352,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                                 '/manager/venues/edit-venue/${venue.id}?tab=3'),
                           ),
                         )),
-                    _buildQuickActionTile(
-                      context,
+                    QuickActionTile(
                       title: 'Venue Settings',
                       subtitle: 'Update price, description, and amenities',
                       icon: Icons.settings_outlined,
@@ -381,8 +364,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 12),
-                    _buildQuickActionTile(
-                      context,
+                    QuickActionTile(
                       title: 'All Bookings',
                       subtitle: 'View and manage all booking history',
                       icon: Icons.history_outlined,
@@ -398,135 +380,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
-      ),
-    );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return Colors.green;
-      case 'booked':
-        return Colors.blue;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Widget _buildStatCard(BuildContext context,
-      {required String title,
-      required String value,
-      required IconData icon,
-      required Color color,
-      required Color iconColor}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: const [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.05),
-              offset: Offset(0, 2),
-              blurRadius: 4,
-            )
-          ]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 4), // Add spacing
-              Icon(icon, size: 18, color: iconColor),
-            ],
-          ),
-          FittedBox(
-            // handle potentially large numbers
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActionTile(BuildContext context,
-      {required String title,
-      required String subtitle,
-      required IconData icon,
-      required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: Colors.black87),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-          ],
-        ),
       ),
     );
   }

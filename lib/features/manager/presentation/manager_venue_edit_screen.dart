@@ -675,7 +675,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(width: _timeColumnWidth), // Time column spacer
+                  const SizedBox(width: _timeColumnWidth), // Time column spacer
                   ...weekDays.map((day) {
                     final isToday = day.year == today.year &&
                         day.month == today.month &&
