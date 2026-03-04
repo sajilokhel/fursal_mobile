@@ -436,19 +436,21 @@ class _SlotSelectionScreenState extends ConsumerState<SlotSelectionScreen> {
 
                           // Ask backend to compute payment amount for the selected slot
                           final paymentService = PaymentService();
-                          final computeResp = await paymentService.computeAmount(
+                          final computeResp =
+                              await paymentService.computeAmount(
                             venueId: widget.venueId,
                             date: dateStr,
                             startTime: _selectedSlotTime!,
                             slots: 1,
                           );
 
-                            final paidAmount =
-                              paymentService.extractPaidAmountFromCompute(computeResp);
-                            debugPrint('computeAmount paidAmount: $paidAmount');
+                          final paidAmount = paymentService
+                              .extractPaidAmountFromCompute(computeResp);
+                          debugPrint('computeAmount paidAmount: $paidAmount');
 
                           // Initiate payment (backend will compute amount server-side)
-                          final paymentResp = await paymentService.initiatePayment(
+                          final paymentResp =
+                              await paymentService.initiatePayment(
                             bookingId: bookingId,
                           );
 
@@ -495,10 +497,10 @@ class _SlotSelectionScreenState extends ConsumerState<SlotSelectionScreen> {
                   elevation: 0,
                 ),
                 child: _isProcessing
-                    ? Row(
+                    ? const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           SizedBox(
                             width: 16,
                             height: 16,

@@ -5,6 +5,8 @@ class Booking {
   final String venueId;
   final String venueName;
   final String userId;
+  final String? userName;
+  final String? userPhone;
   final String date;
   final String startTime;
   final String endTime;
@@ -13,6 +15,8 @@ class Booking {
   final Timestamp createdAt;
   final Timestamp? holdExpiresAt;
   final String? bookingType;
+  final String? notes;
+  final String? paymentStatusField; // Direct payment status from Firestore
   final double? esewaAmount;
   final Timestamp? esewaInitiatedAt;
   final String? esewaStatus;
@@ -26,6 +30,8 @@ class Booking {
     required this.venueId,
     required this.venueName,
     required this.userId,
+    this.userName,
+    this.userPhone,
     required this.date,
     required this.startTime,
     required this.endTime,
@@ -34,6 +40,8 @@ class Booking {
     required this.createdAt,
     this.holdExpiresAt,
     this.bookingType,
+    this.notes,
+    this.paymentStatusField,
     this.esewaAmount,
     this.esewaInitiatedAt,
     this.esewaStatus,
@@ -44,7 +52,8 @@ class Booking {
   });
 
   // Computed property for UI compatibility
-  String get paymentStatus => esewaStatus == 'COMPLETE' ? 'paid' : 'pending';
+  String get paymentStatus =>
+      paymentStatusField ?? (esewaStatus == 'COMPLETE' ? 'paid' : 'pending');
   String? get paymentId => esewaTransactionCode;
 
   Map<String, dynamic> toMap() {
@@ -53,6 +62,8 @@ class Booking {
       'venueId': venueId,
       'venueName': venueName,
       'userId': userId,
+      'userName': userName,
+      'userPhone': userPhone,
       'date': date,
       'startTime': startTime,
       'endTime': endTime,
@@ -61,6 +72,8 @@ class Booking {
       'createdAt': createdAt,
       'holdExpiresAt': holdExpiresAt,
       'bookingType': bookingType,
+      'notes': notes,
+      'paymentStatus': paymentStatusField,
       'esewaAmount': esewaAmount,
       'esewaInitiatedAt': esewaInitiatedAt,
       'esewaStatus': esewaStatus,
@@ -77,6 +90,8 @@ class Booking {
       venueId: map['venueId'] ?? '',
       venueName: map['venueName'] ?? '',
       userId: map['userId'] ?? '',
+      userName: map['userName'],
+      userPhone: map['userPhone'],
       date: map['date'] ?? '',
       startTime: map['startTime'] ?? '',
       endTime: map['endTime'] ?? '',
@@ -85,6 +100,8 @@ class Booking {
       createdAt: map['createdAt'] ?? Timestamp.now(),
       holdExpiresAt: map['holdExpiresAt'],
       bookingType: map['bookingType'],
+      notes: map['notes'],
+      paymentStatusField: map['paymentStatus'],
       esewaAmount: (map['esewaAmount'] ?? 0).toDouble(),
       esewaInitiatedAt: map['esewaInitiatedAt'],
       esewaStatus: map['esewaStatus'],

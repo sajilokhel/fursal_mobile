@@ -1,8 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:io';
 import '../domain/venue.dart';
 import '../domain/review.dart';
 import '../domain/venue_slot.dart';
+import '../../../core/config.dart';
 
 final venueRepositoryProvider = Provider<VenueRepository>((ref) {
   return VenueRepository(FirebaseFirestore.instance);
@@ -16,11 +21,13 @@ final venueProvider = StreamProvider.family<Venue?, String>((ref, id) {
   return ref.watch(venueRepositoryProvider).getVenue(id);
 });
 
-final venueSlotsProvider = StreamProvider.family<VenueSlotData?, String>((ref, venueId) {
+final venueSlotsProvider =
+    StreamProvider.family<VenueSlotData?, String>((ref, venueId) {
   return ref.watch(venueRepositoryProvider).getVenueSlots(venueId);
 });
 
-final venueReviewsProvider = StreamProvider.family<List<Review>, String>((ref, venueId) {
+final venueReviewsProvider =
+    StreamProvider.family<List<Review>, String>((ref, venueId) {
   return ref.watch(venueRepositoryProvider).getReviews(venueId);
 });
 
@@ -58,7 +65,11 @@ class VenueRepository {
   }
 
   Stream<VenueSlotData?> getVenueSlots(String venueId) {
-    return _firestore.collection('venueSlots').doc(venueId).snapshots().map((doc) {
+    return _firestore
+        .collection('venueSlots')
+        .doc(venueId)
+        .snapshots()
+        .map((doc) {
       if (!doc.exists) return null;
       return VenueSlotData.fromMap(doc.data()!, doc.id);
     });
@@ -90,9 +101,8 @@ class VenueRepository {
           b.startTime == heldSlot.startTime &&
           b.status != 'cancelled');
 
-      bool isBlocked = data.blocked.any((b) =>
-          b.date == heldSlot.date &&
-          b.startTime == heldSlot.startTime);
+      bool isBlocked = data.blocked.any(
+          (b) => b.date == heldSlot.date && b.startTime == heldSlot.startTime);
 
       bool isHeld = data.held.any((h) =>
           h.date == heldSlot.date &&
@@ -105,22 +115,87 @@ class VenueRepository {
 
       List<HeldSlot> currentHeld = List.from(data.held);
       // Remove expired holds for this slot if any (though isHeld check handles valid ones)
-      currentHeld.removeWhere((h) =>
-          h.date == heldSlot.date &&
-          h.startTime == heldSlot.startTime);
+      currentHeld.removeWhere(
+          (h) => h.date == heldSlot.date && h.startTime == heldSlot.startTime);
 
       currentHeld.add(heldSlot);
 
       transaction.update(docRef, {
-        'held': currentHeld.map((e) => {
-          'date': e.date,
-          'startTime': e.startTime,
-          'userId': e.userId,
-          'holdExpiresAt': e.holdExpiresAt,
-          'bookingId': e.bookingId,
-          'createdAt': e.createdAt,
-        }).toList(),
+        'held': currentHeld
+            .map((e) => {
+                  'date': e.date,
+                  'startTime': e.startTime,
+                  'userId': e.userId,
+                  'holdExpiresAt': e.holdExpiresAt,
+                  'bookingId': e.bookingId,
+                  'createdAt': e.createdAt,
+                })
+            .toList(),
       });
     });
+  }
+
+  Future<void> updateVenue(Venue venue) async {
+    // Use backend API instead of direct Firestore write
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final token = await user.getIdToken();
+    final baseUrl = AppConfig.apiUrl;
+
+    // Include venue ID in the body for updates
+    final body = {
+      'id': venue.id, // Important: Include ID for updates
+      ...venue.toMap(),
+    };
+
+    print('Sending venue update: $body'); // Debug log
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/venues'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+
+    print('Response: ${response.statusCode} - ${response.body}'); // Debug log
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to update venue: ${response.body}');
+    }
+  }
+
+  Future<String> uploadVenueImage(File file, String venueId) async {
+    // Use backend upload API instead of direct Firebase Storage
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final token = await user.getIdToken();
+    final baseUrl = AppConfig.apiUrl;
+
+    // Create multipart request
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/upload'),
+    );
+
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(await http.MultipartFile.fromPath(
+      'file',
+      file.path,
+      filename: 'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    ));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      return data['url'] as String;
+    } else {
+      throw Exception('Failed to upload image: ${response.body}');
+    }
   }
 }

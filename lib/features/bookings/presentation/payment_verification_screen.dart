@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/payment_service.dart';
 import '../data/checkout_state.dart';
+import '../../../../core/services/notification_service.dart';
 
 class PaymentVerificationScreen extends ConsumerStatefulWidget {
   final String transactionUuid;
@@ -58,12 +59,31 @@ class _PaymentVerificationScreenState
         if (mounted) {
           // Reset checkout state on success
           ref.read(checkoutProvider.notifier).reset();
-          
+
           setState(() {
             _isLoading = false;
             _isSuccess = true;
             _bookingData = resp['bookingData'];
             _refId = resp['refId'];
+
+            // Schedule notification
+            if (_bookingData != null) {
+              try {
+                final dateStr = _bookingData!['date'] as String;
+                final timeStr = _bookingData!['startTime'] as String;
+                // Assuming date is YYYY-MM-DD and time is HH:MM
+                final dateTimeStr = '$dateStr $timeStr:00';
+                final bookingTime = DateTime.parse(dateTimeStr);
+
+                NotificationService().scheduleBookingNotification(
+                  id: bookingTime.millisecondsSinceEpoch ~/ 1000,
+                  venueName: widget.venueName ?? 'Futsal Venue',
+                  bookingTime: bookingTime,
+                );
+              } catch (e) {
+                print('Failed to schedule notification: $e');
+              }
+            }
           });
         }
       } else {
@@ -140,7 +160,8 @@ class _PaymentVerificationScreenState
                 color: Colors.green.shade50,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.check_circle, size: 64, color: Colors.green),
+              child:
+                  const Icon(Icons.check_circle, size: 64, color: Colors.green),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -223,7 +244,7 @@ class _PaymentVerificationScreenState
             color: Colors.red.shade50,
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.error_outline, size: 64, color: Colors.red),
+          child: const Icon(Icons.error_outline, size: 64, color: Colors.red),
         ),
         const SizedBox(height: 24),
         const Text(
