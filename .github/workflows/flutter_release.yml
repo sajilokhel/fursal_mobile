@@ -128,7 +128,7 @@ jobs:
             - **Android**: `SajiloKhel-${{ github.ref_name }}.apk`
             - **iOS**: `SajiloKhel-${{ github.ref_name }}.ipa` *(unsigned — sideload only)*
           files: |
-            app-release.apk
+            SajiloKhel.apk
             SajiloKhel.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
