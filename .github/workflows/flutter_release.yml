@@ -49,7 +49,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/SajiloKhel.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
   # ─────────────────────────────────────────────
   # iOS build (unsigned IPA)
@@ -110,11 +110,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: android-apk
+          path: .
 
       - name: Download IPA artifact
         uses: actions/download-artifact@v4
         with:
           name: ios-ipa
+          path: .
+
+      - name: Rename artifacts
+        run: |
+          mv app-release.apk SajiloKhel.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -125,8 +131,8 @@ jobs:
             ## SajiloKhel ${{ github.ref_name }}
 
             ### Downloads
-            - **Android**: `SajiloKhel-${{ github.ref_name }}.apk`
-            - **iOS**: `SajiloKhel-${{ github.ref_name }}.ipa` *(unsigned — sideload only)*
+            - **Android**: `SajiloKhel.apk`
+            - **iOS**: `SajiloKhel.ipa` *(unsigned — sideload only)*
           files: |
             SajiloKhel.apk
             SajiloKhel.ipa
