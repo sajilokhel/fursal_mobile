@@ -146,7 +146,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
             _buildLabel('Venue Name *'),
             TextFormField(
               controller: _nameController,
-              decoration: _inputDecoration('e.g., Champion Futsal Arena'),
+              decoration: _inputDecoration('e.g., Champion Sports Arena'),
             ),
             const SizedBox(height: 16),
             _buildLabel('Description'),

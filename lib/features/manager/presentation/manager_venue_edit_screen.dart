@@ -248,7 +248,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
             _buildTextField(
               controller: _nameController,
               label: 'Venue Name',
-              hint: 'e.g., Downtown Futsal',
+              hint: 'e.g., Downtown Sports Arena',
             ),
             const SizedBox(height: 16),
             _buildTextField(

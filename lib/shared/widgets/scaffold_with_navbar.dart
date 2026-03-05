@@ -13,7 +13,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
   String _getTitle(int index) {
     switch (index) {
       case 0:
-        return 'Fursal';
+        return 'SajiloKhel';
       case 1:
         return 'Venues';
       case 2:
@@ -21,7 +21,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
       case 3:
         return 'Profile';
       default:
-        return 'Fursal';
+        return 'SajiloKhel';
     }
   }
 

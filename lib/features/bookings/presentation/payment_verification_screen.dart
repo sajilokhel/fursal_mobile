@@ -77,7 +77,7 @@ class _PaymentVerificationScreenState
 
                 NotificationService().scheduleBookingNotification(
                   id: bookingTime.millisecondsSinceEpoch ~/ 1000,
-                  venueName: widget.venueName ?? 'Futsal Venue',
+                  venueName: widget.venueName ?? 'Sports Venue',
                   bookingTime: bookingTime,
                 );
               } catch (e) {

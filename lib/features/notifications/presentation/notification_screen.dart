@@ -11,7 +11,7 @@ class NotificationScreen extends StatelessWidget {
       {
         'title': 'Booking Confirmed',
         'body':
-            'Your booking at Futsal Arena has been confirmed for tomorrow at 6 PM.',
+            'Your booking at Sports Arena has been confirmed for tomorrow at 6 PM.',
         'time': '2 hours ago',
         'isRead': false,
       },

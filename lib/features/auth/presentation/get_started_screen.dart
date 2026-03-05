@@ -20,9 +20,9 @@ class _GetStartedScreenState extends State<GetStartedScreen> {
     super.didChangeDependencies();
     _items = [
       OnboardingItem(
-        title: 'Find Perfect Courts',
+        title: 'Find Perfect Grounds',
         description:
-            'Discover the best futsal courts near you with just a few taps.',
+            'Discover the best sports grounds near you with just a few taps.',
         visual: _buildLocationVisual(),
       ),
       OnboardingItem(

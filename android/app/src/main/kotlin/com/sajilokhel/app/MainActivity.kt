@@ -1,4 +1,4 @@
-package com.example.tournament
+package com.sajilokhel.app
 
 import io.flutter.embedding.android.FlutterActivity
 

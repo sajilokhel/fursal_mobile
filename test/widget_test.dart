@@ -14,7 +14,7 @@ import 'package:fursal_mobile/main.dart';
 void main() {
   testWidgets('App boots and shows main MaterialApp', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const ProviderScope(child: FursalApp()));
+    await tester.pumpWidget(const ProviderScope(child: SajiloKhelApp()));
     await tester.pumpAndSettle();
 
     // Verify that a MaterialApp was created (basic smoke test for render)

@@ -556,7 +556,7 @@ Success:
 [
   {
     "id": "venue_1",
-    "name": "Futsal Arena",
+    "name": "Sports Arena",
     "location": "Kathmandu",
     "pricePerHour": 1500,
     "images": ["/images/ground1.jpg"],
@@ -717,7 +717,7 @@ GET success:
 [
   {
     "id": 1,
-    "name": "Futsal Arena",
+    "name": "Sports Arena",
     "location": "Kathmandu",
     "price": 1500,
     "image": "/images/ground1.jpg"

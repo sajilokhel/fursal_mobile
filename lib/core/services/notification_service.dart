@@ -22,7 +22,7 @@ class NotificationService {
 
     // For iOS, we need to request permissions.
     // We can do this on init or on demand. Doing it here for simplicity.
-    final DarwinInitializationSettings initializationSettingsDarwin =
+    const DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,

@@ -30,11 +30,11 @@ void main() async {
   // Initialize notifications
   await NotificationService().init();
 
-  runApp(const ProviderScope(child: FursalApp()));
+  runApp(const ProviderScope(child: SajiloKhelApp()));
 }
 
-class FursalApp extends ConsumerWidget {
-  const FursalApp({super.key});
+class SajiloKhelApp extends ConsumerWidget {
+  const SajiloKhelApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

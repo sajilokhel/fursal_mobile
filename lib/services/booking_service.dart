@@ -185,8 +185,9 @@ class BookingService {
       String msg = resp.body;
       try {
         final parsed = jsonDecode(resp.body);
-        if (parsed is Map && parsed['error'] != null)
+        if (parsed is Map && parsed['error'] != null) {
           msg = parsed['error'].toString();
+        }
       } catch (_) {}
       throw Exception('Create booking failed: ${resp.statusCode} $msg');
     }
