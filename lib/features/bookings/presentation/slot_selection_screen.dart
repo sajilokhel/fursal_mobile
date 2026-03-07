@@ -604,10 +604,12 @@ class _SlotSelectionScreenState extends ConsumerState<SlotSelectionScreen> {
       return SlotStatus.bookedWebsite;
     }
 
-    // Check held
-    if (data.held.any((h) => h.date == date && h.startTime == time)) {
-      // Check if hold is expired
-      // For now assume valid if present, ideally check timestamp
+    // Check held — only if the hold has not yet expired
+    final now = DateTime.now();
+    if (data.held.any((h) =>
+        h.date == date &&
+        h.startTime == time &&
+        h.holdExpiresAt.toDate().isAfter(now))) {
       return SlotStatus.held;
     }
 
