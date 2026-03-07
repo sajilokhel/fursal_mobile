@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../bookings/data/booking_repository.dart';
+import '../data/manager_stats_provider.dart';
 import 'widgets/stat_card.dart';
 import 'widgets/quick_action_tile.dart';
 import 'widgets/status_helpers.dart';
@@ -35,38 +36,15 @@ class ManagerDashboardScreen extends ConsumerWidget {
 
           final bookingsAsync =
               ref.watch(managerBookingsProvider(myVenueIds.join(',')));
+          final statsAsync = ref.watch(managerStatsProvider(userId));
 
           return bookingsAsync.when(
             data: (bookings) {
-              // Calculate stats
-              double totalRevenue = 0;
-              int activeBookings = 0;
-              int physicalBookings = 0;
-              int onlineBookings = 0;
-
-              for (var booking in bookings) {
-                // Physical vs Online
-                final isPhysical = booking.bookingType == 'manual' ||
-                    booking.bookingType == 'physical';
-
-                if (isPhysical) {
-                  physicalBookings++;
-                } else {
-                  onlineBookings++;
-                }
-
-                // Active Bookings
-                if (['booked', 'confirmed', 'pending']
-                    .contains(booking.status.toLowerCase())) {
-                  activeBookings++;
-                }
-
-                // Revenue (only confirmed/paid)
-                if (['confirmed', 'booked']
-                    .contains(booking.status.toLowerCase())) {
-                  totalRevenue += booking.amount;
-                }
-              }
+              // Count active bookings for the quick badge
+              final activeBookings = bookings
+                  .where((b) => ['booked', 'confirmed', 'pending']
+                      .contains(b.status.toLowerCase()))
+                  .length;
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
@@ -82,44 +60,72 @@ class ManagerDashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Statistics Cards
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.4,
-                      children: [
-                        StatCard(
-                          title: 'Total Revenue',
-                          value: 'Rs. ${totalRevenue.toStringAsFixed(0)}',
-                          icon: Icons.account_balance_wallet_outlined,
-                          backgroundColor: Colors.blue.shade50,
-                          iconColor: Colors.blue,
+                    // Statistics Cards — from API
+                    statsAsync.when(
+                      data: (stats) => GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.4,
+                        children: [
+                          StatCard(
+                            title: 'Total Income',
+                            value: 'Rs. ${stats.totalIncome.toStringAsFixed(0)}',
+                            icon: Icons.account_balance_wallet_outlined,
+                            backgroundColor: Colors.blue.shade50,
+                            iconColor: Colors.blue,
+                          ),
+                          StatCard(
+                            title: 'Active Bookings',
+                            value: '$activeBookings',
+                            icon: Icons.calendar_today_outlined,
+                            backgroundColor: Colors.green.shade50,
+                            iconColor: Colors.green,
+                          ),
+                          StatCard(
+                            title: 'Physical Bookings',
+                            value: '${stats.physicalBookings}',
+                            icon: Icons.storefront_outlined,
+                            backgroundColor: Colors.orange.shade50,
+                            iconColor: Colors.orange,
+                          ),
+                          StatCard(
+                            title: 'Online Bookings',
+                            value: '${stats.onlineBookings}',
+                            icon: Icons.language_outlined,
+                            backgroundColor: Colors.purple.shade50,
+                            iconColor: Colors.purple,
+                          ),
+                        ],
+                      ),
+                      loading: () => GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.4,
+                        children: List.generate(
+                          4,
+                          (_) => Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
-                        StatCard(
-                          title: 'Active Bookings',
-                          value: '$activeBookings',
-                          icon: Icons.calendar_today_outlined,
-                          backgroundColor: Colors.green.shade50,
-                          iconColor: Colors.green,
+                      ),
+                      error: (e, _) => Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        StatCard(
-                          title: 'Physical Bookings',
-                          value: '$physicalBookings',
-                          icon: Icons.storefront_outlined,
-                          backgroundColor: Colors.orange.shade50,
-                          iconColor: Colors.orange,
-                        ),
-                        StatCard(
-                          title: 'Online Bookings',
-                          value: '$onlineBookings',
-                          icon: Icons.language_outlined,
-                          backgroundColor: Colors.purple.shade50,
-                          iconColor: Colors.purple,
-                        ),
-                      ],
+                        child: Text('Could not load stats: $e',
+                            style: const TextStyle(color: Colors.red)),
+                      ),
                     ),
 
                     const SizedBox(height: 24),
