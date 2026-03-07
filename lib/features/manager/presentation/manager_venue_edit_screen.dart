@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:convert';
 import '../../../core/theme.dart';
 import '../../../core/config.dart';
+import '../../../core/sport_types.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../venues/domain/venue.dart';
 import '../../venues/domain/venue_slot.dart';
@@ -47,6 +48,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   bool _isInitialized = false;
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
+  String _selectedSportType = 'futsal';
 
   // Availability tab state - start from today
   late DateTime _selectedWeekStart;
@@ -137,6 +139,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
             _descriptionController.text = venue.description ?? '';
             _priceController.text = venue.pricePerHour.toString();
             _addressController.text = venue.address ?? '';
+            _selectedSportType = venue.sportType;
 
             if (venue.latitude != 0 && venue.longitude != 0) {
               _selectedLocation = LatLng(venue.latitude, venue.longitude);
@@ -218,6 +221,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
         createdAt: venue.createdAt,
         averageRating: venue.averageRating,
         reviewCount: venue.reviewCount,
+        sportType: _selectedSportType,
       );
 
       await ref.read(venueRepositoryProvider).updateVenue(updatedVenue);
@@ -264,6 +268,46 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
               hint: '0.00',
               prefixText: '\$',
               keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Sport Type',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedSportType,
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                      const BorderSide(color: AppTheme.primaryColor),
+                ),
+              ),
+              items: kAllSports
+                  .map(
+                    (sport) => DropdownMenuItem(
+                      value: sport.id,
+                      child: Text('${sport.emoji}  ${sport.name}'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedSportType = value);
+                }
+              },
             ),
             const SizedBox(height: 16),
             // TODO: Add Attribute management here

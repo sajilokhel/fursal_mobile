@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../features/venues/domain/venue.dart';
 import '../../core/theme.dart';
+import '../../core/sport_types.dart';
 
 class VenueListCard extends StatelessWidget {
   final Venue venue;
@@ -15,8 +16,6 @@ class VenueListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Build sport tags from venue attributes keys
-    final sportTags = _getSportTags(venue.attributes);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -127,18 +126,17 @@ class VenueListCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Sport tags row
-                    if (sportTags.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: sportTags
-                            .take(3)
-                            .map((tag) => _buildSportTag(tag))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                    // Sport type tag
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _buildSportTag(
+                          '${sportEmoji(venue.sportType)} ${sportDisplayName(venue.sportType)}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
 
                     // Venue name + Price
                     Row(
@@ -224,23 +222,6 @@ class VenueListCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  List<String> _getSportTags(Map<String, String> attributes) {
-    const sportKeys = [
-      'Football',
-      'Futsal',
-      'Cricket',
-      'Badminton',
-      'Basketball',
-      'Table Tennis',
-      'Tennis',
-      'Volleyball',
-    ];
-    return attributes.keys
-        .where((k) =>
-            sportKeys.any((s) => k.toLowerCase().contains(s.toLowerCase())))
-        .toList();
   }
 
   Widget _buildSportTag(String label) {

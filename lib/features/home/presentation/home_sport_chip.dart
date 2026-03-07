@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
+import '../../../core/sport_types.dart';
+export '../../../core/sport_types.dart'
+    show SportItem, kAllSports, kFeaturedSports, sportItemById, sportDisplayName, sportEmoji;
 
-class SportItem {
-  final String name;
-  final String emoji;
-
-  const SportItem({required this.name, required this.emoji});
-}
-
-const List<SportItem> kSportItems = [
-  SportItem(name: 'Futsal', emoji: '⚽'),
-  SportItem(name: 'Badminton', emoji: '🏸'),
-  SportItem(name: 'Cricket', emoji: '🏏'),
-  SportItem(name: 'Basketball', emoji: '🏀'),
-  SportItem(name: 'Table Tennis', emoji: '🏓'),
-];
+/// Featured sports shown as quick-access chips (5 items).
+/// Use [kAllSports] when you need the full list of 15 sport types.
+const List<SportItem> kSportItems = kFeaturedSports;
 
 class HomeSportChip extends StatelessWidget {
   final SportItem sport;

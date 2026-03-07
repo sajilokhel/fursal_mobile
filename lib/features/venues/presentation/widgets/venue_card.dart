@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/venue.dart';
 import '../../../../core/theme.dart';
+import '../../../../core/sport_types.dart';
 
 class VenueCard extends StatelessWidget {
   final Venue venue;
@@ -154,11 +155,11 @@ class VenueCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.sports_soccer_outlined,
+                      Icon(Icons.sports_outlined,
                           size: 14, color: Colors.grey.shade400),
                       const SizedBox(width: 4),
                       Text(
-                        'Futsal', // Static for now as requested
+                        '${sportEmoji(venue.sportType)} ${sportDisplayName(venue.sportType)}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,

@@ -14,6 +14,7 @@ class Venue {
   final String managedBy;
   final double averageRating;
   final int reviewCount;
+  final String sportType;
 
   const Venue({
     required this.id,
@@ -29,6 +30,7 @@ class Venue {
     required this.managedBy,
     this.averageRating = 0.0,
     this.reviewCount = 0,
+    this.sportType = 'futsal',
   });
 
   factory Venue.fromMap(Map<String, dynamic> map, String id) {
@@ -53,6 +55,9 @@ class Venue {
       managedBy: map['managedBy'] ?? '',
       averageRating: (map['averageRating'] ?? 0.0).toDouble(),
       reviewCount: (map['reviewCount'] ?? 0).toInt(),
+      sportType: map['sportType'] is String && (map['sportType'] as String).isNotEmpty
+          ? map['sportType'] as String
+          : 'futsal',
     );
   }
 
@@ -70,6 +75,7 @@ class Venue {
       'managedBy': managedBy,
       'averageRating': averageRating,
       'reviewCount': reviewCount,
+      'sportType': sportType,
     };
   }
 }

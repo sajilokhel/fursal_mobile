@@ -20,6 +20,7 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   int _selectedSportIndex = 0; // 0 = All
+  String? _filterSportType; // set via the filter bottom sheet (any of 15 sports)
 
   // Filter & Sort State
   RangeValues _priceRange = const RangeValues(0, 5000);
@@ -142,9 +143,13 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
                 itemCount: kSportItems.length,
                 itemBuilder: (context, index) {
                   final sport = kSportItems[index];
-                  final isSelected = _selectedSportIndex == index;
+                  final isSelected =
+                      _filterSportType == null && _selectedSportIndex == index;
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedSportIndex = index),
+                    onTap: () => setState(() {
+                      _selectedSportIndex = index;
+                      _filterSportType = null; // clear filter sheet sport when chip changes
+                    }),
                     child: Container(
                       margin: const EdgeInsets.only(right: 12),
                       padding: const EdgeInsets.symmetric(
@@ -192,15 +197,20 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
               child: venuesAsync.when(
                 data: (venues) {
                   // Filter by sport
-                  var filteredBySport = _selectedSportIndex == 0
-                      ? venues
-                      : venues.where((v) {
-                          final sportName = kSportItems[_selectedSportIndex]
-                              .name
-                              .toLowerCase();
-                          return v.attributes.keys
-                              .any((k) => k.toLowerCase().contains(sportName));
-                        }).toList();
+                  var filteredBySport =
+                      _selectedSportIndex == 0 && _filterSportType == null
+                          ? venues
+                          : venues.where((v) {
+                              if (_selectedSportIndex > 0) {
+                                final sportId =
+                                    kSportItems[_selectedSportIndex].id;
+                                return v.sportType.toLowerCase() ==
+                                    sportId.toLowerCase();
+                              }
+                              // _filterSportType is set from the filter sheet
+                              return v.sportType.toLowerCase() ==
+                                  _filterSportType!.toLowerCase();
+                            }).toList();
 
                   // 1. Filter by search, price, amenities
                   var filteredVenues = filteredBySport.where((venue) {
@@ -436,41 +446,94 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        // Local temp state for sport type – committed on Apply
+        String? tempFilterSport = _filterSportType;
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 16,
-                right: 16,
                 top: 16,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Filters',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _priceRange = RangeValues(_minPrice, _maxPrice);
-                            _selectedAmenities.clear();
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.7,
+                maxChildSize: 0.9,
+                minChildSize: 0.4,
+                builder: (context, scrollController) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Filters',
+                              style: TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _priceRange =
+                                      RangeValues(_minPrice, _maxPrice);
+                                  _selectedAmenities.clear();
+                                  _filterSportType = null;
+                                });
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Reset'),
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+                        Expanded(
+                          child: ListView(
+                            controller: scrollController,
+                            children: [
+                  const SizedBox(height: 8),
+                  // ── Sport Type filter (all 15) ──────────────────
+                  const Text('Sport Type',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: kAllSports.map((sport) {
+                      final isSelected = tempFilterSport == sport.id;
+                      return FilterChip(
+                        label: Text('${sport.emoji} ${sport.name}'),
+                        selected: isSelected,
+                        selectedColor:
+                            AppTheme.primaryColor.withOpacity(0.15),
+                        checkmarkColor: AppTheme.primaryColor,
+                        onSelected: (selected) {
+                          setModalState(() {
+                            tempFilterSport = selected ? sport.id : null;
                           });
-                          Navigator.pop(context);
                         },
-                        child: const Text('Reset'),
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
-                  const Divider(),
                   const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
                   const Text('Price Range',
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
@@ -523,20 +586,32 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        setState(() {});
+                        setState(() {
+                          _filterSportType = tempFilterSport;
+                          // If a filter-sheet sport matches a featured chip, sync the chip
+                          if (_filterSportType != null) {
+                            _selectedSportIndex = 0;
+                          }
+                        });
                         Navigator.pop(context);
                       },
                       child: const Text('Apply Filters'),
                     ),
                   ),
                   const SizedBox(height: 24),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+                            ],  // ListView children
+                          ),    // ListView
+                        ),      // Expanded
+                      ],        // Column children
+                    ),          // inner Padding
+                  );            // DraggableScrollableSheet builder
+                },              // DraggableScrollableSheet builder
+              ),                // DraggableScrollableSheet
+            );                  // outer Padding
+          },                    // StatefulBuilder builder
+        );                      // StatefulBuilder
+      },                        // showModalBottomSheet builder
+    );                          // showModalBottomSheet
   }
 
   void _showVenuePreview(BuildContext context, Venue venue) {

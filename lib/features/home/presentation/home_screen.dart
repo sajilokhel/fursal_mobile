@@ -118,10 +118,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final filtered = _selectedSportIndex == 0
         ? venues
         : venues.where((v) {
-            final sportName =
-                kSportItems[_selectedSportIndex].name.toLowerCase();
-            return v.attributes.keys
-                .any((k) => k.toLowerCase().contains(sportName));
+            final sportId = kSportItems[_selectedSportIndex].id;
+            return v.sportType.toLowerCase() == sportId.toLowerCase();
           }).toList();
 
     // ── Nearby: top 5 by distance (GPS) or fallback by newest ──

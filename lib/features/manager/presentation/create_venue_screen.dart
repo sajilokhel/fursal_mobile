@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme.dart';
+import '../../../core/sport_types.dart';
 import '../data/venue_repository.dart';
 import '../domain/venue.dart';
 
@@ -24,6 +25,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   LatLng? _selectedLocation;
+  String _selectedSportType = 'futsal';
 
   @override
   void initState() {
@@ -177,6 +179,23 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                     const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 alignment: Alignment.centerLeft,
               ),
+            ),
+            const SizedBox(height: 16),
+            _buildLabel('Sport Type'),
+            DropdownButtonFormField<String>(
+              value: _selectedSportType,
+              decoration: _inputDecoration('Select sport type'),
+              items: kAllSports
+                  .map(
+                    (sport) => DropdownMenuItem(
+                      value: sport.id,
+                      child: Text('${sport.emoji}  ${sport.name}'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _selectedSportType = value);
+              },
             ),
           ],
         ),
@@ -344,6 +363,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
             : "Unknown Location",
         pricePerHour: double.tryParse(_priceController.text) ?? 0.0,
         description: _descriptionController.text,
+        sportType: _selectedSportType,
       );
 
       final venueId =

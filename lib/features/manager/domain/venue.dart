@@ -5,6 +5,7 @@ class Venue {
   final String? description;
   final double pricePerHour;
   final Map<String, dynamic>? metadata;
+  final String sportType;
 
   Venue({
     this.id,
@@ -13,6 +14,7 @@ class Venue {
     this.description,
     required this.pricePerHour,
     this.metadata,
+    this.sportType = 'futsal',
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +24,7 @@ class Venue {
       'description': description,
       'pricePerHour': pricePerHour,
       'metadata': metadata,
+      'sportType': sportType,
     };
   }
 
@@ -33,6 +36,9 @@ class Venue {
       description: map['description'],
       pricePerHour: (map['pricePerHour'] ?? 0).toDouble(),
       metadata: map['metadata'],
+      sportType: map['sportType'] is String && (map['sportType'] as String).isNotEmpty
+          ? map['sportType'] as String
+          : 'futsal',
     );
   }
 }
