@@ -5,7 +5,7 @@ class AppConfig {
   // - iOS Simulator: 'http://localhost:3000'
   // - Physical Device: 'http://<YOUR_PC_IP>:3000' (e.g. 192.168.1.X)
   // - Production: 'https://www.sajilokhel.com'
-  static const String backendBaseUrl = 'http://192.168.1.90:3000';
+  static const String backendBaseUrl = 'https://www.sajilokhel.com';
 
   // Helper to get the API endpoint base
   static String get apiUrl => '$backendBaseUrl/api';

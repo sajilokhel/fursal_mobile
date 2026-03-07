@@ -554,7 +554,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // Initialize eSewa using server-provided params only.
       final result = await Esewa.i.init(
         context: context,
-        eSewaConfig: ESewaConfig.dev(
+        eSewaConfig: ESewaConfig.live(
           amount: amount,
           productCode: productCode!,
           secretKey: dotenv.env['ESEWA_SECRET_KEY'] ?? '',

@@ -6,7 +6,7 @@ import '../domain/venue.dart';
 
 // For physical device, use your machine's IP. For Android emulator use 10.0.2.2
 // TODO: Move to environment variable for production
-const String _baseUrl = 'http://192.168.1.90:3000/api';
+const String _baseUrl = 'https://www.sajilokhel.com/api';
 
 final venueRepositoryProvider = Provider<VenueRepository>((ref) {
   return VenueRepository(FirebaseAuth.instance);
