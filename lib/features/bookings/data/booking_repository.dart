@@ -130,7 +130,7 @@ class BookingRepository {
   Future<Booking?> getBookingById(String bookingId) async {
     final doc = await _firestore.collection('bookings').doc(bookingId).get();
     if (doc.exists) {
-      return Booking.fromMap(doc.data()!);
+      return Booking.fromMap({...doc.data()!, 'id': doc.id});
     }
     return null;
   }
@@ -154,7 +154,7 @@ class BookingRepository {
         .snapshots()
         .map((snapshot) {
       final bookings =
-          snapshot.docs.map((doc) => Booking.fromMap(doc.data())).toList();
+          snapshot.docs.map((doc) => Booking.fromMap({...doc.data(), 'id': doc.id})).toList();
       bookings.sort((a, b) {
         // Sort by date desc, then startTime desc
         int dateComp = b.date.compareTo(a.date);

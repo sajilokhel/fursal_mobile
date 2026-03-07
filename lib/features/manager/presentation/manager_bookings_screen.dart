@@ -136,9 +136,10 @@ class _ManagerBookingsScreenState
           await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) throw Exception('Not authenticated');
 
-      // IOClient (dart:io HttpClient) correctly resends the POST body on
-      // 308 permanent redirects, which plain http.Client does not.
-      final ioClient = http.Client();
+      // Use http.Request with followRedirects=false so we receive the 308
+      // response and can manually re-POST instead of having the client
+      // silently convert it to a GET.
+      final client = http.Client();
       http.Response resp;
       try {
         final uri = Uri.parse(
@@ -148,20 +149,27 @@ class _ManagerBookingsScreenState
           'Authorization': 'Bearer $token',
         };
         final encodedBody = jsonEncode({'paymentMethod': method});
-        resp = await ioClient.post(uri,
-            headers: headers, body: encodedBody);
-        // 307/308: re-send POST with same body to the redirect location
+
+        Future<http.Response> doPost(Uri target) async {
+          final req = http.Request('POST', target)
+            ..followRedirects = false
+            ..headers.addAll(headers)
+            ..body = encodedBody;
+          return http.Response.fromStream(await client.send(req));
+        }
+
+        resp = await doPost(uri);
+        // follow 307/308 manually: re-POST to Location
         if ((resp.statusCode == 307 || resp.statusCode == 308) &&
             resp.headers['location'] != null) {
           final loc = resp.headers['location']!;
           final redirUri = Uri.parse(loc).isAbsolute
               ? Uri.parse(loc)
               : Uri.parse('${AppConfig.backendBaseUrl}$loc');
-          resp = await ioClient.post(redirUri,
-              headers: headers, body: encodedBody);
+          resp = await doPost(redirUri);
         }
       } finally {
-        ioClient.close();
+        client.close();
       }
       if (!context.mounted) return;
 

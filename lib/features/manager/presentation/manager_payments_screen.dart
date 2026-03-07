@@ -308,16 +308,24 @@ class _ManagerPaymentsScreenState
           'Authorization': 'Bearer $token',
         };
         final encodedBody = jsonEncode({'paymentMethod': method});
-        resp = await client.post(uri, headers: headers, body: encodedBody);
-        // 307/308: re-send POST with same body to the redirect location
+
+        Future<http.Response> doPost(Uri target) async {
+          final req = http.Request('POST', target)
+            ..followRedirects = false
+            ..headers.addAll(headers)
+            ..body = encodedBody;
+          return http.Response.fromStream(await client.send(req));
+        }
+
+        resp = await doPost(uri);
+        // follow 307/308 manually: re-POST to Location
         if ((resp.statusCode == 307 || resp.statusCode == 308) &&
             resp.headers['location'] != null) {
           final loc = resp.headers['location']!;
           final redirUri = Uri.parse(loc).isAbsolute
               ? Uri.parse(loc)
               : Uri.parse('${AppConfig.backendBaseUrl}$loc');
-          resp = await client.post(redirUri,
-              headers: headers, body: encodedBody);
+          resp = await doPost(redirUri);
         }
       } finally {
         client.close();
