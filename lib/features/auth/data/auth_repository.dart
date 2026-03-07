@@ -128,6 +128,31 @@ class AuthRepository {
     await _auth.sendPasswordResetEmail(email: email);
   }
 
+  /// Returns true if the current user has an email+password provider
+  /// (as opposed to Google-only).
+  bool get currentUserHasPasswordProvider {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    return user.providerData.any((p) => p.providerId == 'password');
+  }
+
+  /// Reauthenticates with [currentPassword] then updates to [newPassword].
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('No authenticated user');
+    }
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPassword);
+  }
+
   Future<void> _saveUserToFirestore(User user, String name) async {
     await _syncUserWithBackend(user, displayName: name);
   }

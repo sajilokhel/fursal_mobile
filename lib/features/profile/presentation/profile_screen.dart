@@ -67,14 +67,14 @@ class ProfileScreen extends ConsumerWidget {
                 leading: const Icon(Icons.settings_outlined),
                 title: const Text('Settings'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
+                onTap: () => context.push('/profile/settings'),
               ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.help_outline),
                 title: const Text('Help & Support'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
+                onTap: () => context.push('/profile/help'),
               ),
               const Divider(),
               ListTile(
