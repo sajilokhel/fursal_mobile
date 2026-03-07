@@ -108,6 +108,8 @@ class ManagerHomeScreen extends ConsumerWidget {
               final venue = myVenues[index];
               return VenueListCard(
                 venue: venue,
+                buttonLabel: 'Edit Venue',
+                buttonIcon: Icons.edit_outlined,
                 onTap: () {
                   context.push('/manager/venues/edit-venue/${venue.id}');
                 },

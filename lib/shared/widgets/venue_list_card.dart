@@ -6,11 +6,15 @@ import '../../core/sport_types.dart';
 class VenueListCard extends StatelessWidget {
   final Venue venue;
   final VoidCallback? onTap;
+  final String buttonLabel;
+  final IconData? buttonIcon;
 
   const VenueListCard({
     super.key,
     required this.venue,
     this.onTap,
+    this.buttonLabel = 'Book Now',
+    this.buttonIcon,
   });
 
   @override
@@ -194,10 +198,10 @@ class VenueListCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
 
-                    // Book Now button
+                    // Action button
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: ElevatedButton.icon(
                         onPressed: onTap,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
@@ -211,7 +215,10 @@ class VenueListCard extends StatelessWidget {
                             fontSize: 14,
                           ),
                         ),
-                        child: const Text('Book Now'),
+                        icon: buttonIcon != null
+                            ? Icon(buttonIcon, size: 16)
+                            : const SizedBox.shrink(),
+                        label: Text(buttonLabel),
                       ),
                     ),
                   ],
