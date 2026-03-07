@@ -263,14 +263,18 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${filteredVenues.length} Venues Available',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
+                            Flexible(
+                              child: Text(
+                                '${filteredVenues.length} Venues Available',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 8),
                             _buildSortButton(),
                           ],
                         ),
@@ -353,11 +357,11 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
 
     switch (_sortOption) {
       case 'price_low':
-        sortLabel = 'Price Low → High';
+        sortLabel = 'Low → High';
         sortIcon = Icons.currency_rupee;
         break;
       case 'price_high':
-        sortLabel = 'Price High → Low';
+        sortLabel = 'High → Low';
         sortIcon = Icons.currency_rupee;
         break;
       case 'nearest':
@@ -391,10 +395,10 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
           _buildPopupItem('Nearest', Icons.location_on, 'nearest'),
           const PopupMenuDivider(),
           _buildPopupItem(
-              'Price Low → High', Icons.currency_rupee, 'price_low'),
+              'Price: Low → High', Icons.currency_rupee, 'price_low'),
           const PopupMenuDivider(),
           _buildPopupItem(
-              'Price High → Low', Icons.currency_rupee, 'price_high'),
+              'Price: High → Low', Icons.currency_rupee, 'price_high'),
         ],
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
