@@ -1,9 +1,43 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import 'auth_controller.dart';
+
+/// Converts a Firebase or generic auth error into a user-friendly message.
+String _friendlyAuthError(Object error) {
+  if (error is FirebaseAuthException) {
+    switch (error.code) {
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Incorrect email or password.';
+      case 'email-already-in-use':
+        return 'An account already exists with this email.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled. Contact support.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection.';
+      case 'account-exists-with-different-credential':
+        return 'An account already exists with a different sign-in method.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled.';
+      default:
+        return error.message ?? 'An authentication error occurred.';
+    }
+  }
+  final msg = error.toString().replaceAll('Exception: ', '').trim();
+  return msg.isNotEmpty ? msg : 'An unexpected error occurred.';
+}
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -55,8 +89,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       return;
     }
-    await ref.read(authControllerProvider.notifier).forgotPassword(_emailController.text.trim());
-    if (mounted) {
+    await ref
+        .read(authControllerProvider.notifier)
+        .forgotPassword(_emailController.text.trim());
+    if (!mounted) return;
+    // Only show success if the controller did NOT surface an error.
+    // Errors are already shown by the ref.listen block above.
+    final state = ref.read(authControllerProvider);
+    if (!state.hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password reset email sent!')),
       );
@@ -74,7 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (next.hasError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(next.error.toString().replaceAll('Exception: ', '')),
+              content: Text(_friendlyAuthError(next.error!)),
               backgroundColor: AppTheme.errorColor,
             ),
           );

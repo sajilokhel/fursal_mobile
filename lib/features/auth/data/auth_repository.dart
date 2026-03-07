@@ -79,7 +79,14 @@ class AuthRepository {
     );
 
     if (credential.user != null) {
-      await _saveUserToFirestore(credential.user!, name);
+      try {
+        await _saveUserToFirestore(credential.user!, name);
+      } catch (e) {
+        // Roll back: delete the Firebase Auth account so the user can retry
+        // without hitting "email already in use" on the next attempt.
+        await credential.user!.delete();
+        rethrow;
+      }
     }
   }
 
@@ -96,14 +103,22 @@ class AuthRepository {
 
     final userCredential = await _auth.signInWithCredential(credential);
     if (userCredential.user != null) {
-      // Check if user exists, if not create
+      // Check if user exists in Firestore; if not, this is a brand-new sign-up.
       final doc = await _firestore
           .collection('users')
           .doc(userCredential.user!.uid)
           .get();
       if (!doc.exists) {
-        await _saveUserToFirestore(
-            userCredential.user!, googleUser.displayName ?? 'User');
+        try {
+          await _saveUserToFirestore(
+              userCredential.user!, googleUser.displayName ?? 'User');
+        } catch (e) {
+          // Roll back: delete the Firebase Auth account so the user is not
+          // left in a half-created ghost state.
+          await userCredential.user!.delete();
+          await _googleSignIn.signOut();
+          rethrow;
+        }
       }
     }
   }
