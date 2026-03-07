@@ -7,20 +7,27 @@ import 'status_helpers.dart';
 class BookingCard extends StatelessWidget {
   final Booking booking;
   final VoidCallback? onTap;
+  final VoidCallback? onMarkPaid;
 
-  const BookingCard({super.key, required this.booking, this.onTap});
+  const BookingCard(
+      {super.key, required this.booking, this.onTap, this.onMarkPaid});
 
   @override
   Widget build(BuildContext context) {
     final statusColor = getStatusColor(booking.status);
+    final isConfirmed = booking.status.toLowerCase() == 'confirmed' ||
+        booking.status.toLowerCase() == 'booked';
     final isCancelled = booking.status.toLowerCase() == 'cancelled' ||
         booking.status.toLowerCase() == 'expired';
     final isPhysical =
         booking.bookingType == 'physical' || booking.bookingType == 'manual';
     final customerName = booking.userName ?? 'Customer';
     final amountPaid = booking.esewaAmount ?? 0;
-    final amountDue =
-        isPhysical ? booking.amount : (booking.amount - amountPaid);
+    // If backend already marked this booking as fully paid, treat due as 0
+    final isAlreadyPaid = booking.paymentStatus == 'full';
+    final amountDue = isAlreadyPaid
+        ? 0.0
+        : (isPhysical ? booking.amount : (booking.amount - amountPaid));
 
     return GestureDetector(
       onTap: onTap,
@@ -192,6 +199,32 @@ class BookingCard extends StatelessWidget {
                             ],
                           ],
                         ),
+
+                        // ── Mark as Paid button ──────────────────────────
+                        if (isConfirmed && amountDue > 0 && onMarkPaid != null) ...[
+                          const SizedBox(height: 10),
+                          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              onPressed: onMarkPaid,
+                              icon: const Icon(Icons.payments_outlined,
+                                  size: 16),
+                              label: const Text('Mark as Paid'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.green.shade700,
+                                backgroundColor: Colors.green.shade50,
+                                textStyle: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 13),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                        ],
 
                         // Advance paid row (online only)
                         if (!isPhysical && amountPaid > 0) ...[

@@ -13,6 +13,7 @@ import '../features/manager/presentation/manager_bookings_screen.dart';
 import '../features/manager/presentation/manager_dashboard_screen.dart';
 import '../features/manager/presentation/manager_payments_screen.dart';
 import '../features/manager/presentation/manager_venue_edit_screen.dart';
+import '../features/manager/presentation/manager_transactions_screen.dart';
 
 import '../features/manager/presentation/manager_home_screen.dart';
 import '../features/manager/presentation/manager_scan_qr_screen.dart';
@@ -80,6 +81,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/profile/help',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const HelpSupportScreen(),
+      ),
+      GoRoute(
+        path: '/manager/transactions',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ManagerTransactionsScreen(),
       ),
       // Manager Shell Route
       StatefulShellRoute.indexedStack(

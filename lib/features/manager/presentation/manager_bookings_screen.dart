@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../bookings/data/booking_repository.dart';
 import '../../bookings/domain/booking.dart';
 import 'widgets/booking_detail_sheet.dart';
@@ -7,6 +10,7 @@ import 'widgets/booking_card.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../../core/theme.dart';
+import '../../../core/config.dart';
 
 // ── Status grouping helpers ──────────────────────────────────────────────────
 
@@ -16,6 +20,30 @@ bool _isPending(String s) => s.toLowerCase() == 'pending';
 
 List<Booking> _group(List<Booking> all, bool Function(String) test) =>
     all.where((b) => test(b.status)).toList();
+
+/// Parses a booking date string (YYYY-MM-DD) into DateTime.
+DateTime _parseDate(String date) {
+  try {
+    return DateTime.parse(date);
+  } catch (_) {
+    return DateTime(2000);
+  }
+}
+
+/// Sort confirmed bookings: upcoming (nearest first) then past (most recent first).
+List<Booking> _sortConfirmedByProximity(List<Booking> list) {
+  final today = DateTime(
+      DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  final upcoming = list
+      .where((b) => !_parseDate(b.date).isBefore(today))
+      .toList()
+    ..sort((a, b) => _parseDate(a.date).compareTo(_parseDate(b.date)));
+  final past = list
+      .where((b) => _parseDate(b.date).isBefore(today))
+      .toList()
+    ..sort((a, b) => _parseDate(b.date).compareTo(_parseDate(a.date)));
+  return [...upcoming, ...past];
+}
 
 // ── Main screen ─────────────────────────────────────────────────────────────
 
@@ -52,6 +80,133 @@ class _ManagerBookingsScreenState
         builder: (_, _sc) => BookingDetailSheet(booking: booking),
       ),
     );
+  }
+
+  /// Shows a payment method picker then calls the mark-paid API.
+  Future<void> _markPaid(BuildContext context, Booking booking) async {
+    // 1 — pick payment method
+    final method = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mark as Paid'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Rs. ${(booking.bookingType == "physical" || booking.bookingType == "manual" ? booking.amount : booking.amount - (booking.esewaAmount ?? 0)).toStringAsFixed(0)} due from ${booking.userName ?? "customer"}',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            const Text('How was it paid?',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _PayMethodButton(
+                    label: 'Cash',
+                    icon: Icons.payments_outlined,
+                    onTap: () => Navigator.pop(ctx, 'cash'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PayMethodButton(
+                    label: 'Online',
+                    icon: Icons.phone_android,
+                    onTap: () => Navigator.pop(ctx, 'online'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+        ],
+      ),
+    );
+    if (method == null || !context.mounted) return;
+
+    // 2 — call API
+    try {
+      final token =
+          await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null) throw Exception('Not authenticated');
+
+      // IOClient (dart:io HttpClient) correctly resends the POST body on
+      // 308 permanent redirects, which plain http.Client does not.
+      final ioClient = http.Client();
+      http.Response resp;
+      try {
+        final uri = Uri.parse(
+            '${AppConfig.apiUrl}/manager/bookings/${booking.id}/mark-paid');
+        final headers = {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        };
+        final encodedBody = jsonEncode({'paymentMethod': method});
+        resp = await ioClient.post(uri,
+            headers: headers, body: encodedBody);
+        // 307/308: re-send POST with same body to the redirect location
+        if ((resp.statusCode == 307 || resp.statusCode == 308) &&
+            resp.headers['location'] != null) {
+          final loc = resp.headers['location']!;
+          final redirUri = Uri.parse(loc).isAbsolute
+              ? Uri.parse(loc)
+              : Uri.parse('${AppConfig.backendBaseUrl}$loc');
+          resp = await ioClient.post(redirUri,
+              headers: headers, body: encodedBody);
+        }
+      } finally {
+        ioClient.close();
+      }
+      if (!context.mounted) return;
+
+      if (resp.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Marked as paid ✅'),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        ref.invalidate(managerBookingsProvider);
+      } else {
+        // Safely try to extract an error message from JSON; fall back to
+        // the raw status code if the body is HTML or not valid JSON.
+        String errMsg = 'Failed (${resp.statusCode})';
+        try {
+          final ct = resp.headers['content-type'] ?? '';
+          if (ct.contains('application/json')) {
+            final body = jsonDecode(resp.body);
+            errMsg = body['error'] ?? errMsg;
+          } else {
+            // HTML redirect or unexpected response — show status code only.
+            errMsg = 'Server error ${resp.statusCode}. Check API url config.';
+          }
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errMsg),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -102,7 +257,8 @@ class _ManagerBookingsScreenState
                     (b.userName?.toLowerCase().contains(q) ?? false);
               }).toList();
 
-              final confirmed = _group(filtered, _isConfirmed);
+              final confirmed =
+                  _sortConfirmedByProximity(_group(filtered, _isConfirmed));
               final pending = _group(filtered, _isPending);
               final others = filtered
                   .where((b) => !_isConfirmed(b.status) && !_isPending(b.status))
@@ -205,7 +361,7 @@ class _ManagerBookingsScreenState
                                   icon: Icons.check_circle_outline,
                                 ),
                                 const SizedBox(height: 10),
-                                ..._cards(context, confirmed),
+                                ..._cards(context, confirmed, markPaid: true),
                                 const SizedBox(height: 16),
                               ],
                               if (pending.isNotEmpty) ...[
@@ -246,7 +402,8 @@ class _ManagerBookingsScreenState
     );
   }
 
-  List<Widget> _cards(BuildContext ctx, List<Booking> list) {
+  List<Widget> _cards(BuildContext ctx, List<Booking> list,
+      {bool markPaid = false}) {
     return [
       for (final b in list)
         Padding(
@@ -254,6 +411,7 @@ class _ManagerBookingsScreenState
           child: BookingCard(
             booking: b,
             onTap: () => _openDetail(ctx, b),
+            onMarkPaid: markPaid ? () => _markPaid(ctx, b) : null,
           ),
         ),
     ];
@@ -345,6 +503,45 @@ class _SummaryChip extends StatelessWidget {
                 fontSize: 11, fontWeight: FontWeight.w600, color: color),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Pay method button ─────────────────────────────────────────────────────────
+
+class _PayMethodButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _PayMethodButton(
+      {required this.label, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.green.shade700, size: 24),
+            const SizedBox(height: 6),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                    fontSize: 13)),
+          ],
+        ),
       ),
     );
   }
