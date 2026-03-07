@@ -10,44 +10,10 @@ class ScaffoldWithNavBar extends StatelessWidget {
     super.key,
   });
 
-  String _getTitle(int index) {
-    switch (index) {
-      case 0:
-        return 'SajiloKhel';
-      case 1:
-        return 'Venues';
-      case 2:
-        return 'My Bookings';
-      case 3:
-        return 'Profile';
-      default:
-        return 'SajiloKhel';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _getTitle(navigationShell.currentIndex),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.black),
-            onPressed: () => context.push('/notifications'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: navigationShell,
+      body: SafeArea(child: navigationShell),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) {
