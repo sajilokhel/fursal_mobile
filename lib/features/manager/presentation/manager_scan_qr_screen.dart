@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../../bookings/data/booking_repository.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../bookings/domain/booking.dart';
+import '../../../core/config.dart';
 import '../../../core/theme.dart';
 import 'widgets/qr_scanner_overlay_shape.dart';
 import 'widgets/scan_verification_sheet.dart';
@@ -42,28 +45,71 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
           _isProcessing = true;
         });
 
-        // Feedback sound or vibration could go here
-
         try {
-          // Fetch booking
-          final booking =
-              await ref.read(bookingRepositoryProvider).getBookingById(code);
+          final token =
+              await FirebaseAuth.instance.currentUser?.getIdToken();
+          if (token == null) throw Exception('Not authenticated');
+
+          final response = await http.post(
+            Uri.parse('${AppConfig.apiUrl}/invoices/verify'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'qr': code}),
+          );
+
+          Booking? booking;
+          String? customerName;
+          bool isStale = false;
+          String? errorMessage;
+
+          if (response.statusCode == 200) {
+            final ct = response.headers['content-type'] ?? '';
+            if (ct.contains('application/json')) {
+              final json = jsonDecode(response.body) as Map<String, dynamic>;
+              final bookingMap =
+                  json['booking'] as Map<String, dynamic>?;
+              if (bookingMap != null) {
+                booking = Booking.fromMap({
+                  ...bookingMap,
+                  'id': bookingMap['id'] ?? '',
+                });
+              }
+              final userMap =
+                  json['user'] as Map<String, dynamic>?;
+              customerName = userMap?['displayName'] as String? ??
+                  userMap?['name'] as String?;
+              isStale = json['stale'] == true;
+            }
+          } else {
+            try {
+              final ct = response.headers['content-type'] ?? '';
+              if (ct.contains('application/json')) {
+                final json = jsonDecode(response.body) as Map<String, dynamic>;
+                errorMessage = json['error'] as String?;
+              }
+            } catch (_) {}
+            errorMessage ??= 'Server error ${response.statusCode}';
+          }
 
           if (mounted) {
-            _showVerificationSheet(context, booking, code);
+            _showVerificationSheet(
+                context, booking, code, customerName, isStale, errorMessage);
           }
         } catch (e) {
           if (mounted) {
-            _showVerificationSheet(context, null, code);
+            _showVerificationSheet(
+                context, null, code, null, false, e.toString());
           }
         }
-        break; // Process only first valid code
+        break;
       }
     }
   }
 
-  void _showVerificationSheet(
-      BuildContext context, Booking? booking, String code) {
+  void _showVerificationSheet(BuildContext context, Booking? booking,
+      String code, String? customerName, bool isStale, String? errorMessage) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -72,6 +118,9 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
       builder: (ctx) => ScanVerificationSheet(
         booking: booking,
         code: code,
+        customerName: customerName,
+        isStale: isStale,
+        errorMessage: errorMessage,
         onScanNext: () {
           setState(() {
             _isProcessing = false;
@@ -112,7 +161,13 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              context.pop();
+            } else {
+              context.go('/manager');
+            }
+          },
         ),
         actions: [
           IconButton(

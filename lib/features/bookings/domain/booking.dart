@@ -1,5 +1,43 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Converts any Timestamp-like value from Firestore or a JSON API response
+/// into a Firestore [Timestamp].
+/// Handles:
+///  - native [Timestamp]
+///  - JSON map  {"_seconds":…,"_nanoseconds":…}  or  {"seconds":…,"nanoseconds":…}
+///  - ISO-8601 string
+///  - null → falls back to [fallback] (default: Timestamp.now())
+Timestamp _toTimestamp(dynamic v, {Timestamp? fallback}) {
+  if (v is Timestamp) return v;
+  if (v is Map) {
+    final sec = (v['_seconds'] ?? v['seconds'] ?? 0) as int;
+    final ns = (v['_nanoseconds'] ?? v['nanoseconds'] ?? 0) as int;
+    return Timestamp(sec, ns);
+  }
+  if (v is String) {
+    try {
+      return Timestamp.fromDate(DateTime.parse(v));
+    } catch (_) {}
+  }
+  return fallback ?? Timestamp.now();
+}
+
+Timestamp? _toTimestampOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is Timestamp) return v;
+  if (v is Map) {
+    final sec = (v['_seconds'] ?? v['seconds'] ?? 0) as int;
+    final ns = (v['_nanoseconds'] ?? v['nanoseconds'] ?? 0) as int;
+    return Timestamp(sec, ns);
+  }
+  if (v is String) {
+    try {
+      return Timestamp.fromDate(DateTime.parse(v));
+    } catch (_) {}
+  }
+  return null;
+}
+
 class Booking {
   final String id;
   final String venueId;
@@ -97,18 +135,18 @@ class Booking {
       endTime: map['endTime'] ?? '',
       amount: (map['amount'] ?? 0).toDouble(),
       status: map['status'] ?? 'pending',
-      createdAt: map['createdAt'] ?? Timestamp.now(),
-      holdExpiresAt: map['holdExpiresAt'],
+      createdAt: _toTimestamp(map['createdAt']),
+      holdExpiresAt: _toTimestampOrNull(map['holdExpiresAt']),
       bookingType: map['bookingType'],
       notes: map['notes'],
       paymentStatusField: map['paymentStatus'],
       esewaAmount: (map['esewaAmount'] ?? 0).toDouble(),
-      esewaInitiatedAt: map['esewaInitiatedAt'],
+      esewaInitiatedAt: _toTimestampOrNull(map['esewaInitiatedAt']),
       esewaStatus: map['esewaStatus'],
       esewaTransactionCode: map['esewaTransactionCode'],
       esewaTransactionUuid: map['esewaTransactionUuid'],
-      paymentTimestamp: map['paymentTimestamp'],
-      verifiedAt: map['verifiedAt'],
+      paymentTimestamp: _toTimestampOrNull(map['paymentTimestamp']),
+      verifiedAt: _toTimestampOrNull(map['verifiedAt']),
     );
   }
 }

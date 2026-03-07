@@ -6,6 +6,9 @@ import 'scan_detail_row.dart';
 class ScanVerificationSheet extends StatelessWidget {
   final Booking? booking;
   final String code;
+  final String? customerName;
+  final bool isStale;
+  final String? errorMessage;
   final VoidCallback onScanNext;
   final VoidCallback onViewDetails;
   final VoidCallback onTryAgain;
@@ -14,6 +17,9 @@ class ScanVerificationSheet extends StatelessWidget {
     super.key,
     required this.booking,
     required this.code,
+    this.customerName,
+    this.isStale = false,
+    this.errorMessage,
     required this.onScanNext,
     required this.onViewDetails,
     required this.onTryAgain,
@@ -77,11 +83,39 @@ class ScanVerificationSheet extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (isStale) ...
+              [
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.access_time,
+                          size: 14, color: Colors.orange.shade700),
+                      const SizedBox(width: 6),
+                      Text(
+                        'QR code is older than 24 hours',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade700),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             const SizedBox(height: 24),
             ScanDetailRow(
               icon: Icons.person_outline,
               label: 'Customer',
-              value: booking!.userId, // Use name if available
+              value: customerName ?? booking!.userId,
             ),
             const SizedBox(height: 12),
             ScanDetailRow(
@@ -152,17 +186,12 @@ class ScanVerificationSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'No booking found for the scanned code.',
+              errorMessage ?? 'No booking found for the scanned code.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Code: $code',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-            const SizedBox(height: 24),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
