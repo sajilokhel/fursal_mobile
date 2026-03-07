@@ -80,6 +80,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _handleGoogleSignIn() async {
     debugPrint('Google Sign In button pressed');
     await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    // Guard against the widget being disposed while the Google sign-in
+    // dialog was open (e.g. user navigated away).
+    if (!mounted) return;
   }
   
   void _handleForgotPassword() async {
@@ -195,8 +198,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                    // RFC-5322 simplified: requires local@domain.tld
+                    final emailRegex = RegExp(
+                        r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+                    if (!emailRegex.hasMatch(value.trim())) {
+                      return 'Please enter a valid email address';
                     }
                     return null;
                   },

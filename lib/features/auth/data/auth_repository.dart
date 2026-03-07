@@ -55,14 +55,10 @@ class AuthRepository {
           );
         }
       } catch (e) {
-        // Fallback if firestore fails
-        return AuthUser(
-          uid: user.uid,
-          email: user.email ?? '',
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          role: 'user',
-        );
+        // Do NOT silently fall back to role:'user' — a manager or admin would
+        // lose their permissions without any indication. Rethrow so the
+        // StreamProvider surfaces an error the UI can react to.
+        rethrow;
       }
     });
   }
