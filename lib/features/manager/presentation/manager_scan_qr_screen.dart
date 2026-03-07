@@ -61,6 +61,8 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
 
           Booking? booking;
           String? customerName;
+          String? customerEmail;
+          String? venueAddress;
           bool isStale = false;
           String? errorMessage;
 
@@ -76,10 +78,12 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
                   'id': bookingMap['id'] ?? '',
                 });
               }
-              final userMap =
-                  json['user'] as Map<String, dynamic>?;
+              final userMap = json['user'] as Map<String, dynamic>?;
               customerName = userMap?['displayName'] as String? ??
                   userMap?['name'] as String?;
+              customerEmail = userMap?['email'] as String?;
+              final venueMap = json['venue'] as Map<String, dynamic>?;
+              venueAddress = venueMap?['address'] as String?;
               isStale = json['stale'] == true;
             }
           } else {
@@ -94,13 +98,13 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
           }
 
           if (mounted) {
-            _showVerificationSheet(
-                context, booking, code, customerName, isStale, errorMessage);
+            _showVerificationSheet(context, booking, code, customerName,
+                customerEmail, venueAddress, isStale, errorMessage);
           }
         } catch (e) {
           if (mounted) {
             _showVerificationSheet(
-                context, null, code, null, false, e.toString());
+                context, null, code, null, null, null, false, e.toString());
           }
         }
         break;
@@ -108,46 +112,49 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
     }
   }
 
-  void _showVerificationSheet(BuildContext context, Booking? booking,
-      String code, String? customerName, bool isStale, String? errorMessage) {
+  void _showVerificationSheet(
+      BuildContext context,
+      Booking? booking,
+      String code,
+      String? customerName,
+      String? customerEmail,
+      String? venueAddress,
+      bool isStale,
+      String? errorMessage) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      enableDrag: false, // Prevent accidental dismissal during processing
+      enableDrag: false,
       builder: (ctx) => ScanVerificationSheet(
         booking: booking,
         code: code,
         customerName: customerName,
+        customerEmail: customerEmail,
+        venueAddress: venueAddress,
         isStale: isStale,
         errorMessage: errorMessage,
         onScanNext: () {
-          setState(() {
-            _isProcessing = false;
-          });
           Navigator.of(ctx).pop();
+          setState(() => _isProcessing = false);
+          controller.start();
         },
         onViewDetails: () {
-          context.push('/manager/bookings');
-          setState(() {
-            _isProcessing = false;
-          });
           Navigator.of(ctx).pop();
+          setState(() => _isProcessing = false);
+          context.push('/manager/bookings');
         },
         onTryAgain: () {
-          setState(() {
-            _isProcessing = false;
-          });
           Navigator.of(ctx).pop();
+          setState(() => _isProcessing = false);
+          controller.start();
         },
       ),
     ).then((_) {
-      // Reset processing state if sheet is dismissed by other means
       if (_isProcessing) {
-        setState(() {
-          _isProcessing = false;
-        });
+        setState(() => _isProcessing = false);
       }
+      controller.start();
     });
   }
 
