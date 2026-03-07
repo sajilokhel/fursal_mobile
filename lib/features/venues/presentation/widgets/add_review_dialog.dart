@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme.dart';
 import '../../data/venue_repository.dart';
-import '../../domain/review.dart';
-import '../../../auth/data/auth_repository.dart';
 
 class AddReviewDialog extends ConsumerStatefulWidget {
   final String venueId;
@@ -93,22 +91,17 @@ class _AddReviewDialogState extends ConsumerState<AddReviewDialog> {
     setState(() => _isSubmitting = true);
 
     try {
-      final user = ref.read(authStateProvider).value;
-      if (user == null) throw Exception('User not logged in');
-
-      final review = Review(
-        id: '', // Will be set by repository logic
-        venueId: widget.venueId,
-        userId: user.uid,
-        rating: _rating,
-        comment: _commentController.text.trim(),
-        createdAt: DateTime.now(),
-        userName: user.displayName ?? 'User',
-        userPhotoUrl: user.photoURL,
-      );
-
-      await ref.read(venueRepositoryProvider).addReview(review);
-      if (mounted) Navigator.pop(context);
+      await ref.read(venueRepositoryProvider).addReview(
+            venueId: widget.venueId,
+            rating: _rating,
+            comment: _commentController.text.trim(),
+          );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Review submitted. Thank you!')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -81,7 +81,7 @@ class VenueCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _OverlayButton(
-                          text: 'View Map',
+                          text: 'Map',
                           icon: Icons.location_on,
                           onTap: onViewOnMap,
                         ),

@@ -27,11 +27,13 @@ class Review {
       venueId: map['venueId'] ?? '',
       userId: map['userId'] ?? '',
       rating: (map['rating'] ?? 0.0).toDouble(),
-      comment: map['comment'] ?? '',
-      createdAt: map['createdAt'] is Timestamp 
-          ? (map['createdAt'] as Timestamp).toDate() 
-          : DateTime.now(),
-      userName: map['userName'],
+      comment: map['text'] ?? map['comment'] ?? '',
+      createdAt: map['createdAt'] is Timestamp
+          ? (map['createdAt'] as Timestamp).toDate()
+          : map['createdAt'] is String
+              ? DateTime.tryParse(map['createdAt']) ?? DateTime.now()
+              : DateTime.now(),
+      userName: map['author'] ?? map['userName'],
       userPhotoUrl: map['userPhotoUrl'],
     );
   }

@@ -53,8 +53,9 @@ class VenueRepository {
 
   Stream<List<Review>> getReviews(String venueId) {
     return _firestore
-        .collection('reviews')
-        .where('venueId', isEqualTo: venueId)
+        .collection('venues')
+        .doc(venueId)
+        .collection('comments')
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
@@ -75,13 +76,33 @@ class VenueRepository {
     });
   }
 
-  Future<void> addReview(Review review) async {
-    // Use a transaction or batch if we were updating the venue average rating here,
-    // but the user said "rating is not saved it has to be calculated",
-    // so we might just save the review.
-    // However, to ensure "one review per user per venue", we use the composite ID.
-    final docId = '${review.venueId}_${review.userId}';
-    await _firestore.collection('reviews').doc(docId).set(review.toMap());
+  Future<void> addReview({
+    required String venueId,
+    required double rating,
+    required String comment,
+    String? bookingId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final token = await user.getIdToken();
+    final response = await http.post(
+      Uri.parse('${AppConfig.apiUrl}/venues/$venueId/reviews'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'rating': rating,
+        'comment': comment,
+        if (bookingId != null) 'bookingId': bookingId,
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      final body = jsonDecode(response.body);
+      throw Exception(body['error'] ?? 'Failed to submit review');
+    }
   }
 
   Future<void> holdSlot(String venueId, HeldSlot heldSlot) async {
