@@ -13,7 +13,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     FirebaseAuth.instance,
     FirebaseFirestore.instance,
-    GoogleSignIn(),
+    GoogleSignIn(
+      // Web/server client ID — required so idToken is always populated.
+      // Taken from google-services.json oauth_client (client_type: 3).
+      serverClientId:
+          '1034146087306-emp3oi4qlm4tet61el789t1immmci3cg.apps.googleusercontent.com',
+    ),
   );
 });
 
