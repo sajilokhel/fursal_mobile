@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme.dart';
 import '../../../bookings/domain/booking.dart';
+import 'booking_detail_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Result model
@@ -32,7 +33,6 @@ class ScanVerificationSheet extends StatefulWidget {
   final String code;
   final Future<VerificationResult> future;
   final VoidCallback onScanNext;
-  final VoidCallback onViewDetails;
   final VoidCallback onTryAgain;
 
   const ScanVerificationSheet({
@@ -40,7 +40,6 @@ class ScanVerificationSheet extends StatefulWidget {
     required this.code,
     required this.future,
     required this.onScanNext,
-    required this.onViewDetails,
     required this.onTryAgain,
   });
 
@@ -94,8 +93,8 @@ class _ScanVerificationSheetState extends State<ScanVerificationSheet>
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
+      initialChildSize: 0.58,
+      minChildSize: 0.4,
       maxChildSize: 0.95,
       expand: false,
       builder: (_, scrollController) => Container(
@@ -130,7 +129,6 @@ class _ScanVerificationSheetState extends State<ScanVerificationSheet>
                         fatalError: _fatalError,
                         scrollController: scrollController,
                         onScanNext: onScanNext,
-                        onViewDetails: onViewDetails,
                         onTryAgain: onTryAgain,
                       ),
                     ),
@@ -142,7 +140,6 @@ class _ScanVerificationSheetState extends State<ScanVerificationSheet>
   }
 
   VoidCallback get onScanNext => widget.onScanNext;
-  VoidCallback get onViewDetails => widget.onViewDetails;
   VoidCallback get onTryAgain => widget.onTryAgain;
 }
 
@@ -191,7 +188,6 @@ class _ResultView extends StatelessWidget {
   final Object? fatalError;
   final ScrollController scrollController;
   final VoidCallback onScanNext;
-  final VoidCallback onViewDetails;
   final VoidCallback onTryAgain;
 
   const _ResultView({
@@ -199,7 +195,6 @@ class _ResultView extends StatelessWidget {
     required this.fatalError,
     required this.scrollController,
     required this.onScanNext,
-    required this.onViewDetails,
     required this.onTryAgain,
   });
 
@@ -228,7 +223,6 @@ class _ResultView extends StatelessWidget {
       isStale: result!.isStale,
       scrollController: scrollController,
       onScanNext: onScanNext,
-      onViewDetails: onViewDetails,
     );
   }
 }
@@ -324,7 +318,6 @@ class _BookingBody extends StatelessWidget {
   final bool isStale;
   final ScrollController scrollController;
   final VoidCallback onScanNext;
-  final VoidCallback onViewDetails;
 
   const _BookingBody({
     required this.booking,
@@ -334,7 +327,6 @@ class _BookingBody extends StatelessWidget {
     required this.isStale,
     required this.scrollController,
     required this.onScanNext,
-    required this.onViewDetails,
   });
 
   @override
@@ -383,11 +375,11 @@ class _BookingBody extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             controller: scrollController,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Info grid
+                // Date / Time / Amount / Status grid
                 Row(
                   children: [
                     Expanded(
@@ -414,59 +406,45 @@ class _BookingBody extends StatelessWidget {
                     Expanded(child: _statusCell(booking.status)),
                   ],
                 ),
-                const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Divider()),
 
-                // Customer
-                _sectionHeader(Icons.person_outline, 'Customer Details'),
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _detailLine(
-                          'Name', customerName ?? booking.userName ?? '—'),
-                      const SizedBox(height: 6),
-                      _detailLine('Email', customerEmail ?? '—'),
-                      const SizedBox(height: 6),
-                      _detailLine('User ID', booking.userId, mono: true),
-                    ],
-                  ),
-                ),
-                const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Divider()),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
 
-                // Venue
-                _sectionHeader(Icons.place_outlined, 'Venue'),
-                const SizedBox(height: 10),
-                Text(booking.venueName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 15)),
-                if (venueAddress != null) ...[
-                  const SizedBox(height: 4),
-                  Text(venueAddress!,
-                      style: TextStyle(
-                          color: Colors.grey.shade600, fontSize: 13)),
-                ],
-                const SizedBox(height: 20),
-                Center(
-                  child: Text(
-                    'Booking ID: ${booking.id}',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade400,
-                        fontFamily: 'monospace'),
-                  ),
+                // Compact customer row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.person_outline,
+                          size: 18, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            customerName ?? booking.userName ?? '—',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          if ((customerEmail ?? '').isNotEmpty)
+                            Text(
+                              customerEmail!,
+                              style: TextStyle(
+                                  color: Colors.grey.shade500, fontSize: 12),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+
                 const SizedBox(height: 24),
 
                 // Buttons
@@ -487,7 +465,7 @@ class _BookingBody extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: onViewDetails,
+                        onPressed: () => _openDetail(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
@@ -496,7 +474,7 @@ class _BookingBody extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('View Bookings'),
+                        child: const Text('View Details'),
                       ),
                     ),
                   ],
@@ -506,6 +484,26 @@ class _BookingBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _openDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, sc) => BookingDetailSheet(
+          booking: booking,
+          initialCustomerName: customerName,
+          initialCustomerEmail: customerEmail,
+        ),
+      ),
     );
   }
 
@@ -578,35 +576,6 @@ class _BookingBody extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     fontSize: 12)),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionHeader(IconData icon, String title) {
-    return Row(
-      children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 8),
-        Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-      ],
-    );
-  }
-
-  Widget _detailLine(String label, String value, {bool mono = false}) {
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(color: Colors.black87, fontSize: 13),
-        children: [
-          TextSpan(
-              text: '$label: ',
-              style: TextStyle(color: Colors.grey.shade500)),
-          TextSpan(
-              text: value,
-              style: mono
-                  ? const TextStyle(fontFamily: 'monospace', fontSize: 11)
-                  : const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );

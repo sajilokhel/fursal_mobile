@@ -62,6 +62,9 @@ class Booking {
   final String? esewaTransactionUuid;
   final Timestamp? paymentTimestamp;
   final Timestamp? verifiedAt;
+  final double? dueAmount;       // set to 0 by mark-paid API
+  final String? duePaymentMethod; // 'cash' | 'online'
+  final Timestamp? duePaidAt;
 
   Booking({
     required this.id,
@@ -87,11 +90,33 @@ class Booking {
     this.esewaTransactionUuid,
     this.paymentTimestamp,
     this.verifiedAt,
+    this.dueAmount,
+    this.duePaymentMethod,
+    this.duePaidAt,
   });
 
   // Computed property for UI compatibility
   String get paymentStatus =>
-      paymentStatusField ?? (esewaStatus == 'COMPLETE' ? 'paid' : 'pending');
+      paymentStatusField ??
+      (esewaStatus == 'COMPLETE' ? 'paid' : 'pending');
+
+  /// True when no further payment is owed.
+  bool get isFullyPaid {
+    // Explicitly set paid/cleared by the mark-paid API
+    if (paymentStatusField == 'paid' || paymentStatusField == 'full') return true;
+    // dueAmount field was explicitly zeroed by the API
+    if (dueAmount != null && dueAmount! <= 0) return true;
+    // eSewa COMPLETE only means fully paid when there is no offline balance
+    // (i.e. esewaAmount covered the full booking amount).
+    // For hybrid bookings esewaStatus is COMPLETE but a cash due remains.
+    if (esewaStatus == 'COMPLETE') {
+      final isPhysical = bookingType == 'physical' || bookingType == 'manual';
+      final computedDue =
+          isPhysical ? amount : amount - (esewaAmount ?? 0);
+      return computedDue <= 0;
+    }
+    return false;
+  }
   String? get paymentId => esewaTransactionCode;
 
   Map<String, dynamic> toMap() {
@@ -119,6 +144,9 @@ class Booking {
       'esewaTransactionUuid': esewaTransactionUuid,
       'paymentTimestamp': paymentTimestamp,
       'verifiedAt': verifiedAt,
+      'dueAmount': dueAmount,
+      'duePaymentMethod': duePaymentMethod,
+      'duePaidAt': duePaidAt,
     };
   }
 
@@ -147,6 +175,11 @@ class Booking {
       esewaTransactionUuid: map['esewaTransactionUuid'],
       paymentTimestamp: _toTimestampOrNull(map['paymentTimestamp']),
       verifiedAt: _toTimestampOrNull(map['verifiedAt']),
+      dueAmount: map['dueAmount'] != null
+          ? (map['dueAmount'] as num).toDouble()
+          : null,
+      duePaymentMethod: map['duePaymentMethod'],
+      duePaidAt: _toTimestampOrNull(map['duePaidAt']),
     );
   }
 }

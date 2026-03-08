@@ -61,11 +61,6 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
           Navigator.of(ctx).pop();
           _resetScanner();
         },
-        onViewDetails: () {
-          Navigator.of(ctx).pop();
-          _resetScanner();
-          context.push('/manager/bookings');
-        },
         onTryAgain: () {
           Navigator.of(ctx).pop();
           _resetScanner();
