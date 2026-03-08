@@ -13,26 +13,7 @@ class ManagerScaffoldWithNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _getTitle(navigationShell.currentIndex),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.black),
-            onPressed: () => context.push('/notifications'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: navigationShell,
+      body: SafeArea(child: navigationShell),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) {
@@ -74,22 +55,5 @@ class ManagerScaffoldWithNavBar extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _getTitle(int index) {
-    switch (index) {
-      case 0:
-        return 'Dashboard';
-      case 1:
-        return 'Bookings';
-      case 2:
-        return 'Payments';
-      case 3:
-        return 'My Venues';
-      case 4:
-        return 'Scan QR';
-      default:
-        return 'Dashboard';
-    }
   }
 }
