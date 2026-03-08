@@ -2,39 +2,97 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme.dart';
 import '../../../bookings/domain/booking.dart';
 
-class ScanVerificationSheet extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// Result model
+// ---------------------------------------------------------------------------
+
+class VerificationResult {
   final Booking? booking;
-  final String code;
   final String? customerName;
   final String? customerEmail;
   final String? venueAddress;
   final bool isStale;
   final String? errorMessage;
+
+  const VerificationResult({
+    this.booking,
+    this.customerName,
+    this.customerEmail,
+    this.venueAddress,
+    this.isStale = false,
+    this.errorMessage,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Widget
+// ---------------------------------------------------------------------------
+
+class ScanVerificationSheet extends StatefulWidget {
+  final String code;
+  final Future<VerificationResult> future;
   final VoidCallback onScanNext;
   final VoidCallback onViewDetails;
   final VoidCallback onTryAgain;
 
   const ScanVerificationSheet({
     super.key,
-    required this.booking,
     required this.code,
-    this.customerName,
-    this.customerEmail,
-    this.venueAddress,
-    this.isStale = false,
-    this.errorMessage,
+    required this.future,
     required this.onScanNext,
     required this.onViewDetails,
     required this.onTryAgain,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isValid = booking != null;
-    final isConfirmed = booking?.status.toLowerCase() == 'confirmed';
-    final headerColor =
-        isValid && isConfirmed && !isStale ? Colors.green.shade600 : Colors.orange.shade700;
+  State<ScanVerificationSheet> createState() => _ScanVerificationSheetState();
+}
 
+class _ScanVerificationSheetState extends State<ScanVerificationSheet>
+    with SingleTickerProviderStateMixin {
+  VerificationResult? _result;
+  bool _loading = true;
+  Object? _fatalError;
+
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
+
+    widget.future.then((result) {
+      if (mounted) {
+        setState(() {
+          _result = result;
+          _loading = false;
+        });
+        _fadeController.forward();
+      }
+    }).catchError((e) {
+      if (mounted) {
+        setState(() {
+          _fatalError = e;
+          _loading = false;
+        });
+        _fadeController.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
       minChildSize: 0.5,
@@ -61,225 +119,393 @@ class ScanVerificationSheet extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Header banner
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              color: isValid ? headerColor : Colors.red.shade600,
-              child: Row(
-                children: [
-                  Icon(
-                    isValid && isConfirmed && !isStale
-                        ? Icons.check_circle
-                        : isValid
-                            ? Icons.warning_amber_rounded
-                            : Icons.error_outline,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isValid && isConfirmed && !isStale
-                            ? 'Valid Booking'
-                            : isValid
-                                ? 'Warning'
-                                : 'Invalid QR Code',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
+            // Content area
+            Expanded(
+              child: _loading
+                  ? _LoadingView()
+                  : FadeTransition(
+                      opacity: _fadeAnim,
+                      child: _ResultView(
+                        result: _result,
+                        fatalError: _fatalError,
+                        scrollController: scrollController,
+                        onScanNext: onScanNext,
+                        onViewDetails: onViewDetails,
+                        onTryAgain: onTryAgain,
                       ),
-                      if (isStale)
-                        const Text(
-                          'QR timestamp is older than 24 hours',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                    ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  VoidCallback get onScanNext => widget.onScanNext;
+  VoidCallback get onViewDetails => widget.onViewDetails;
+  VoidCallback get onTryAgain => widget.onTryAgain;
+}
+
+// ---------------------------------------------------------------------------
+// Loading view
+// ---------------------------------------------------------------------------
+
+class _LoadingView extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.08),
+            shape: BoxShape.circle,
+          ),
+          child: CircularProgressIndicator(
+            color: AppTheme.primaryColor,
+            strokeWidth: 3,
+          ),
+        ),
+        const SizedBox(height: 28),
+        const Text(
+          'Verifying QR Code...',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Checking booking with server',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Result dispatcher
+// ---------------------------------------------------------------------------
+
+class _ResultView extends StatelessWidget {
+  final VerificationResult? result;
+  final Object? fatalError;
+  final ScrollController scrollController;
+  final VoidCallback onScanNext;
+  final VoidCallback onViewDetails;
+  final VoidCallback onTryAgain;
+
+  const _ResultView({
+    required this.result,
+    required this.fatalError,
+    required this.scrollController,
+    required this.onScanNext,
+    required this.onViewDetails,
+    required this.onTryAgain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (result == null) {
+      return _ErrorBody(
+        message: fatalError?.toString() ?? 'Unknown error occurred.',
+        scrollController: scrollController,
+        onTryAgain: onTryAgain,
+      );
+    }
+    final booking = result!.booking;
+    if (booking == null) {
+      return _ErrorBody(
+        message: result!.errorMessage ?? 'No booking found for this QR code.',
+        scrollController: scrollController,
+        onTryAgain: onTryAgain,
+      );
+    }
+    return _BookingBody(
+      booking: booking,
+      customerName: result!.customerName,
+      customerEmail: result!.customerEmail,
+      venueAddress: result!.venueAddress,
+      isStale: result!.isStale,
+      scrollController: scrollController,
+      onScanNext: onScanNext,
+      onViewDetails: onViewDetails,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Error body
+// ---------------------------------------------------------------------------
+
+class _ErrorBody extends StatelessWidget {
+  final String message;
+  final ScrollController scrollController;
+  final VoidCallback onTryAgain;
+
+  const _ErrorBody({
+    required this.message,
+    required this.scrollController,
+    required this.onTryAgain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          color: Colors.red.shade600,
+          child: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white, size: 24),
+              SizedBox(width: 12),
+              Text(
+                'Invalid QR Code',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: scrollController,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  Icon(Icons.qr_code_scanner,
+                      size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: onTryAgain,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Scan Again'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade900,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-            if (!isValid) ...[
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.qr_code_scanner,
-                          size: 64, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        errorMessage ?? 'No booking found for this QR code.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                      const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: onTryAgain,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Scan Again'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade900,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+// ---------------------------------------------------------------------------
+// Booking success body
+// ---------------------------------------------------------------------------
+
+class _BookingBody extends StatelessWidget {
+  final Booking booking;
+  final String? customerName;
+  final String? customerEmail;
+  final String? venueAddress;
+  final bool isStale;
+  final ScrollController scrollController;
+  final VoidCallback onScanNext;
+  final VoidCallback onViewDetails;
+
+  const _BookingBody({
+    required this.booking,
+    this.customerName,
+    this.customerEmail,
+    this.venueAddress,
+    required this.isStale,
+    required this.scrollController,
+    required this.onScanNext,
+    required this.onViewDetails,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isConfirmed = booking.status.toLowerCase() == 'confirmed';
+    final headerColor =
+        isConfirmed && !isStale ? Colors.green.shade600 : Colors.orange.shade700;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header banner
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          color: headerColor,
+          child: Row(
+            children: [
+              Icon(
+                isConfirmed && !isStale
+                    ? Icons.check_circle
+                    : Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 24,
               ),
-            ] else ...[
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(20),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isConfirmed && !isStale ? 'Valid Booking' : 'Warning',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18),
+                  ),
+                  if (isStale)
+                    const Text(
+                      'QR timestamp is older than 24 hours',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Info grid
+                Row(
+                  children: [
+                    Expanded(
+                        child: _infoCell(
+                            'DATE', booking.date, Icons.calendar_today)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: _infoCell(
+                            'TIME',
+                            '${booking.startTime} – ${booking.endTime}',
+                            Icons.access_time)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                        child: _infoCell(
+                            'AMOUNT',
+                            'Rs. ${booking.amount.toStringAsFixed(0)}',
+                            Icons.credit_card,
+                            valueColor: Colors.green.shade700)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _statusCell(booking.status)),
+                  ],
+                ),
+                const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider()),
+
+                // Customer
+                _sectionHeader(Icons.person_outline, 'Customer Details'),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Date / Time / Amount / Status grid
-                      Row(
-                        children: [
-                          Expanded(
-                              child: _infoCell('DATE',
-                                  booking!.date, Icons.calendar_today)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: _infoCell(
-                                  'TIME',
-                                  '${booking!.startTime} – ${booking!.endTime}',
-                                  Icons.access_time)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: _infoCell(
-                                  'AMOUNT',
-                                  'Rs. ${booking!.amount.toStringAsFixed(0)}',
-                                  Icons.credit_card,
-                                  valueColor: Colors.green.shade700)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: _statusCell(booking!.status)),
-                        ],
-                      ),
-
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(),
-                      ),
-
-                      // Customer Details
-                      _sectionHeader(Icons.person_outline, 'Customer Details'),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _detailLine('Name',
-                                customerName ?? booking!.userName ?? '—'),
-                            const SizedBox(height: 6),
-                            _detailLine('Email', customerEmail ?? '—'),
-                            const SizedBox(height: 6),
-                            _detailLine('User ID', booking!.userId,
-                                mono: true),
-                          ],
-                        ),
-                      ),
-
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(),
-                      ),
-
-                      // Venue
-                      _sectionHeader(Icons.place_outlined, 'Venue'),
-                      const SizedBox(height: 10),
-                      Text(booking!.venueName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 15)),
-                      if (venueAddress != null) ...[
-                        const SizedBox(height: 4),
-                        Text(venueAddress!,
-                            style: TextStyle(
-                                color: Colors.grey.shade600, fontSize: 13)),
-                      ],
-
-                      const SizedBox(height: 20),
-                      // Booking ID
-                      Center(
-                        child: Text(
-                          'Booking ID: ${booking!.id}',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade400,
-                              fontFamily: 'monospace'),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Action buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: onScanNext,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12)),
-                              ),
-                              child: const Text('Scan Next'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: onViewDetails,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12)),
-                              ),
-                              child: const Text('View Bookings'),
-                            ),
-                          ),
-                        ],
-                      ),
+                      _detailLine(
+                          'Name', customerName ?? booking.userName ?? '—'),
+                      const SizedBox(height: 6),
+                      _detailLine('Email', customerEmail ?? '—'),
+                      const SizedBox(height: 6),
+                      _detailLine('User ID', booking.userId, mono: true),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ],
+                const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider()),
+
+                // Venue
+                _sectionHeader(Icons.place_outlined, 'Venue'),
+                const SizedBox(height: 10),
+                Text(booking.venueName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 15)),
+                if (venueAddress != null) ...[
+                  const SizedBox(height: 4),
+                  Text(venueAddress!,
+                      style: TextStyle(
+                          color: Colors.grey.shade600, fontSize: 13)),
+                ],
+                const SizedBox(height: 20),
+                Center(
+                  child: Text(
+                    'Booking ID: ${booking.id}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade400,
+                        fontFamily: 'monospace'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onScanNext,
+                        style: OutlinedButton.styleFrom(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Scan Next'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: onViewDetails,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('View Bookings'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -363,8 +589,7 @@ class ScanVerificationSheet extends StatelessWidget {
         Icon(icon, size: 18),
         const SizedBox(width: 8),
         Text(title,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       ],
     );
   }

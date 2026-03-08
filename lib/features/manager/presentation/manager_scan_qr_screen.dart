@@ -9,7 +9,7 @@ import '../../bookings/domain/booking.dart';
 import '../../../core/config.dart';
 import '../../../core/theme.dart';
 import 'widgets/qr_scanner_overlay_shape.dart';
-import 'widgets/scan_verification_sheet.dart';
+import 'widgets/scan_verification_sheet.dart' show ScanVerificationSheet, VerificationResult;
 
 class ManagerScanQRScreen extends ConsumerStatefulWidget {
   const ManagerScanQRScreen({super.key});
@@ -21,7 +21,7 @@ class ManagerScanQRScreen extends ConsumerStatefulWidget {
 
 class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
   final MobileScannerController controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
+    detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
     torchEnabled: false,
   );
@@ -33,129 +33,106 @@ class _ManagerScanQRScreenState extends ConsumerState<ManagerScanQRScreen> {
     super.dispose();
   }
 
-  void _handleBarcode(BarcodeCapture capture) async {
+  void _handleBarcode(BarcodeCapture capture) {
     if (_isProcessing) return;
-    final List<Barcode> barcodes = capture.barcodes;
+    final barcode = capture.barcodes.firstWhere(
+      (b) => b.rawValue != null,
+      orElse: () => const Barcode(),
+    );
+    final code = barcode.rawValue;
+    if (code == null) return;
 
-    for (final barcode in barcodes) {
-      if (barcode.rawValue != null) {
-        final code = barcode.rawValue!;
+    setState(() => _isProcessing = true);
+    controller.stop(); // stop camera while sheet is open
 
-        setState(() {
-          _isProcessing = true;
-        });
+    // Kick off verification — sheet receives the Future and handles loading
+    final future = _verifyQR(code);
 
-        try {
-          final token =
-              await FirebaseAuth.instance.currentUser?.getIdToken();
-          if (token == null) throw Exception('Not authenticated');
-
-          final response = await http.post(
-            Uri.parse('${AppConfig.apiUrl}/invoices/verify'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({'qr': code}),
-          );
-
-          Booking? booking;
-          String? customerName;
-          String? customerEmail;
-          String? venueAddress;
-          bool isStale = false;
-          String? errorMessage;
-
-          if (response.statusCode == 200) {
-            final ct = response.headers['content-type'] ?? '';
-            if (ct.contains('application/json')) {
-              final json = jsonDecode(response.body) as Map<String, dynamic>;
-              final bookingMap =
-                  json['booking'] as Map<String, dynamic>?;
-              if (bookingMap != null) {
-                booking = Booking.fromMap({
-                  ...bookingMap,
-                  'id': bookingMap['id'] ?? '',
-                });
-              }
-              final userMap = json['user'] as Map<String, dynamic>?;
-              customerName = userMap?['displayName'] as String? ??
-                  userMap?['name'] as String?;
-              customerEmail = userMap?['email'] as String?;
-              final venueMap = json['venue'] as Map<String, dynamic>?;
-              venueAddress = venueMap?['address'] as String?;
-              isStale = json['stale'] == true;
-            }
-          } else {
-            try {
-              final ct = response.headers['content-type'] ?? '';
-              if (ct.contains('application/json')) {
-                final json = jsonDecode(response.body) as Map<String, dynamic>;
-                errorMessage = json['error'] as String?;
-              }
-            } catch (_) {}
-            errorMessage ??= 'Server error ${response.statusCode}';
-          }
-
-          if (mounted) {
-            _showVerificationSheet(context, booking, code, customerName,
-                customerEmail, venueAddress, isStale, errorMessage);
-          }
-        } catch (e) {
-          if (mounted) {
-            _showVerificationSheet(
-                context, null, code, null, null, null, false, e.toString());
-          }
-        }
-        break;
-      }
-    }
-  }
-
-  void _showVerificationSheet(
-      BuildContext context,
-      Booking? booking,
-      String code,
-      String? customerName,
-      String? customerEmail,
-      String? venueAddress,
-      bool isStale,
-      String? errorMessage) {
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       enableDrag: false,
       builder: (ctx) => ScanVerificationSheet(
-        booking: booking,
         code: code,
-        customerName: customerName,
-        customerEmail: customerEmail,
-        venueAddress: venueAddress,
-        isStale: isStale,
-        errorMessage: errorMessage,
+        future: future,
         onScanNext: () {
           Navigator.of(ctx).pop();
-          setState(() => _isProcessing = false);
-          controller.start();
+          _resetScanner();
         },
         onViewDetails: () {
           Navigator.of(ctx).pop();
-          setState(() => _isProcessing = false);
+          _resetScanner();
           context.push('/manager/bookings');
         },
         onTryAgain: () {
           Navigator.of(ctx).pop();
-          setState(() => _isProcessing = false);
-          controller.start();
+          _resetScanner();
         },
       ),
-    ).then((_) {
-      if (_isProcessing) {
-        setState(() => _isProcessing = false);
+    ).then((_) => _resetScanner());
+  }
+
+  void _resetScanner() {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    controller.start();
+  }
+
+  Future<VerificationResult> _verifyQR(String code) async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null) throw Exception('Not authenticated');
+
+      final response = await http.post(
+        Uri.parse('${AppConfig.apiUrl}/invoices/verify'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'qr': code}),
+      );
+
+      if (response.statusCode == 200) {
+        final ct = response.headers['content-type'] ?? '';
+        if (ct.contains('application/json')) {
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          final bookingMap = json['booking'] as Map<String, dynamic>?;
+          Booking? booking;
+          if (bookingMap != null) {
+            booking = Booking.fromMap({
+              ...bookingMap,
+              'id': bookingMap['id'] ?? '',
+            });
+          }
+          final userMap = json['user'] as Map<String, dynamic>?;
+          final venueMap = json['venue'] as Map<String, dynamic>?;
+          return VerificationResult(
+            booking: booking,
+            customerName: userMap?['displayName'] as String? ??
+                userMap?['name'] as String?,
+            customerEmail: userMap?['email'] as String?,
+            venueAddress: venueMap?['address'] as String?,
+            isStale: json['stale'] == true,
+          );
+        }
       }
-      controller.start();
-    });
+
+      // Non-200 or non-JSON — try to read error message
+      String? errorMessage;
+      try {
+        final ct = response.headers['content-type'] ?? '';
+        if (ct.contains('application/json')) {
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          errorMessage = json['error'] as String?;
+        }
+      } catch (_) {}
+      return VerificationResult(
+          errorMessage: errorMessage ?? 'Server error ${response.statusCode}');
+    } catch (e) {
+      return VerificationResult(errorMessage: e.toString());
+    }
   }
 
   @override
