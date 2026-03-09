@@ -159,7 +159,7 @@ class _LoadingView extends StatelessWidget {
             color: AppTheme.primaryColor.withOpacity(0.08),
             shape: BoxShape.circle,
           ),
-          child: CircularProgressIndicator(
+          child: const CircularProgressIndicator(
             color: AppTheme.primaryColor,
             strokeWidth: 3,
           ),
@@ -332,8 +332,9 @@ class _BookingBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isConfirmed = booking.status.toLowerCase() == 'confirmed';
-    final headerColor =
-        isConfirmed && !isStale ? Colors.green.shade600 : Colors.orange.shade700;
+    final headerColor = isConfirmed && !isStale
+        ? Colors.green.shade600
+        : Colors.orange.shade700;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -454,8 +455,7 @@ class _BookingBody extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: onScanNext,
                         style: OutlinedButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -469,8 +469,7 @@ class _BookingBody extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -566,15 +565,12 @@ class _BookingBody extends StatelessWidget {
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
                 color: bg, borderRadius: BorderRadius.circular(20)),
             child: Text(status,
                 style: TextStyle(
-                    color: fg,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12)),
+                    color: fg, fontWeight: FontWeight.w600, fontSize: 12)),
           ),
         ],
       ),

@@ -40,11 +40,6 @@ class ScaffoldWithNavBar extends StatelessWidget {
                 Icon(Icons.calendar_today, color: AppTheme.primaryColor),
             label: 'Bookings',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: AppTheme.primaryColor),
-            label: 'Profile',
-          ),
         ],
       ),
     );

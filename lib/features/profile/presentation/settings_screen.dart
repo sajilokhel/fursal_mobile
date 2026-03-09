@@ -25,7 +25,7 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: ListView(
         children: [
-          _SectionHeader(title: 'Account'),
+          const _SectionHeader(title: 'Account'),
           ListTile(
             leading: const Icon(Icons.lock_outline),
             title: const Text('Change Password'),
@@ -190,7 +190,8 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
         } else if (message.contains('weak-password')) {
           message = 'New password is too weak.';
         } else if (message.contains('requires-recent-login')) {
-          message = 'Please log out and log in again before changing your password.';
+          message =
+              'Please log out and log in again before changing your password.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
@@ -223,8 +224,7 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                       setState(() => _obscureCurrent = !_obscureCurrent),
                 ),
               ),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Required' : null,
+              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -235,8 +235,7 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                 suffixIcon: IconButton(
                   icon: Icon(
                       _obscureNew ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () =>
-                      setState(() => _obscureNew = !_obscureNew),
+                  onPressed: () => setState(() => _obscureNew = !_obscureNew),
                 ),
               ),
               validator: (v) {
@@ -259,9 +258,8 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
                       setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
               ),
-              validator: (v) => v != _newPasswordCtrl.text
-                  ? 'Passwords do not match'
-                  : null,
+              validator: (v) =>
+                  v != _newPasswordCtrl.text ? 'Passwords do not match' : null,
             ),
           ],
         ),

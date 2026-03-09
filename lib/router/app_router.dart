@@ -20,7 +20,6 @@ import '../features/manager/presentation/manager_scan_qr_screen.dart';
 import '../features/notifications/presentation/notification_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/help_support_screen.dart';
-import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
 import '../features/venues/presentation/venue_detail_screen.dart';
 import '../features/venues/presentation/venue_list_screen.dart';
@@ -32,8 +31,6 @@ final _shellNavigatorHomeKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellHome');
 final _shellNavigatorBookingKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellBooking');
-final _shellNavigatorProfileKey =
-    GlobalKey<NavigatorState>(debugLabel: 'shellProfile');
 final _shellNavigatorVenuesKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellVenues');
 
@@ -81,6 +78,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/profile/help',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const HelpSupportScreen(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const EditProfileScreen(),
       ),
       GoRoute(
         path: '/manager/transactions',
@@ -221,22 +223,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/bookings',
                 builder: (context, state) => const BookingScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            navigatorKey: _shellNavigatorProfileKey,
-            routes: [
-              GoRoute(
-                path: '/profile',
-                builder: (context, state) => const ProfileScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'edit',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const EditProfileScreen(),
-                  ),
-                ],
               ),
             ],
           ),

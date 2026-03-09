@@ -1,5 +1,6 @@
 /// Sport type constants mirroring the backend SPORT_TYPES array from @/lib/sports.
 /// Default sport when none is provided or value is invalid: 'futsal'.
+library;
 
 class SportItem {
   final String id; // matches backend SPORT_TYPES value (lowercase)

@@ -32,15 +32,13 @@ DateTime _parseDate(String date) {
 
 /// Sort confirmed bookings: upcoming (nearest first) then past (most recent first).
 List<Booking> _sortConfirmedByProximity(List<Booking> list) {
-  final today = DateTime(
-      DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  final today =
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   final upcoming = list
       .where((b) => !_parseDate(b.date).isBefore(today))
       .toList()
     ..sort((a, b) => _parseDate(a.date).compareTo(_parseDate(b.date)));
-  final past = list
-      .where((b) => _parseDate(b.date).isBefore(today))
-      .toList()
+  final past = list.where((b) => _parseDate(b.date).isBefore(today)).toList()
     ..sort((a, b) => _parseDate(b.date).compareTo(_parseDate(a.date)));
   return [...upcoming, ...past];
 }
@@ -55,8 +53,7 @@ class ManagerBookingsScreen extends ConsumerStatefulWidget {
       _ManagerBookingsScreenState();
 }
 
-class _ManagerBookingsScreenState
-    extends ConsumerState<ManagerBookingsScreen> {
+class _ManagerBookingsScreenState extends ConsumerState<ManagerBookingsScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -77,7 +74,7 @@ class _ManagerBookingsScreenState
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
-        builder: (_, _sc) => BookingDetailSheet(
+        builder: (_, sc) => BookingDetailSheet(
           booking: booking,
           onMarkPaidSuccess: () => ref.invalidate(managerBookingsProvider),
         ),
@@ -126,8 +123,7 @@ class _ManagerBookingsScreenState
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         ],
       ),
     );
@@ -135,8 +131,7 @@ class _ManagerBookingsScreenState
 
     // 2 — call API
     try {
-      final token =
-          await FirebaseAuth.instance.currentUser?.getIdToken();
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) throw Exception('Not authenticated');
 
       // Use http.Request with followRedirects=false so we receive the 308
@@ -272,7 +267,8 @@ class _ManagerBookingsScreenState
                   _sortConfirmedByProximity(_group(filtered, _isConfirmed));
               final pending = _group(filtered, _isPending);
               final others = filtered
-                  .where((b) => !_isConfirmed(b.status) && !_isPending(b.status))
+                  .where(
+                      (b) => !_isConfirmed(b.status) && !_isPending(b.status))
                   .toList();
 
               return Column(
@@ -337,7 +333,8 @@ class _ManagerBookingsScreenState
                       ],
                     ),
                   ),
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+                  const Divider(
+                      height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
 
                   // ── Grouped list ──────────────────────────────────────────
                   Expanded(
@@ -354,14 +351,14 @@ class _ManagerBookingsScreenState
                                       ? 'No bookings found'
                                       : 'No matching bookings',
                                   style: TextStyle(
-                                      color: Colors.grey.shade500, fontSize: 16),
+                                      color: Colors.grey.shade500,
+                                      fontSize: 16),
                                 ),
                               ],
                             ),
                           )
                         : ListView(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                             physics: const BouncingScrollPhysics(),
                             children: [
                               if (confirmed.isNotEmpty) ...[
@@ -402,8 +399,7 @@ class _ManagerBookingsScreenState
                 ],
               );
             },
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, _) => Center(child: Text('Error: $err')),
           );
         },

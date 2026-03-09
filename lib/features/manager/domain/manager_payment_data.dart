@@ -1,4 +1,5 @@
 /// Models for GET /api/manager/payments response.
+library;
 
 class DuePaymentRecord {
   final String id;
@@ -33,8 +34,7 @@ class DuePaymentRecord {
     this.createdAt,
   });
 
-  factory DuePaymentRecord.fromJson(Map<String, dynamic> j) =>
-      DuePaymentRecord(
+  factory DuePaymentRecord.fromJson(Map<String, dynamic> j) => DuePaymentRecord(
         id: j['id'] ?? '',
         bookingId: j['bookingId'] ?? '',
         venueId: j['venueId'] ?? '',
@@ -78,8 +78,7 @@ class ManagerPaymentData {
   final List<PaymentRecord> payments;
   final List<DuePaymentRecord> duePayments;
 
-  const ManagerPaymentData(
-      {required this.payments, required this.duePayments});
+  const ManagerPaymentData({required this.payments, required this.duePayments});
 
   factory ManagerPaymentData.fromJson(Map<String, dynamic> j) =>
       ManagerPaymentData(

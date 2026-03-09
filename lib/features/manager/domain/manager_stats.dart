@@ -44,25 +44,25 @@ class ManagerStats {
     final s = json['stats'] as Map<String, dynamic>? ?? {};
     final d = json['derived'] as Map<String, dynamic>? ?? {};
 
-    num _n(dynamic v) => v is num ? v : 0;
+    num n(dynamic v) => v is num ? v : 0;
 
     return ManagerStats(
-      totalBookings: (_n(s['totalBookings'])).toInt(),
-      physicalBookings: (_n(s['physicalBookings'])).toInt(),
-      onlineBookings: (_n(s['onlineBookings'])).toInt(),
-      totalIncome: (_n(s['totalIncome'])).toDouble(),
-      physicalIncome: (_n(s['physicalIncome'])).toDouble(),
-      onlineIncome: (_n(s['onlineIncome'])).toDouble(),
-      safeOnlineIncome: (_n(s['safeOnlineIncome'])).toDouble(),
-      commissionPercentage: (_n(s['commissionPercentage'])).toDouble(),
-      commissionAmount: (_n(s['commissionAmount'])).toDouble(),
-      netIncome: (_n(s['netIncome'])).toDouble(),
-      totalPaidOut: (_n(d['totalPaidOut'])).toDouble(),
-      heldByManager: (_n(d['heldByManager'])).toDouble(),
-      heldByAdmin: (_n(d['heldByAdmin'])).toDouble(),
-      totalToBePaid: (_n(d['totalToBePaid'])).toDouble(),
-      actualPaymentToBePaid: (_n(d['actualPaymentToBePaid'])).toDouble(),
-      cancellationLimit: (_n(json['cancellationLimit'])).toInt(),
+      totalBookings: (n(s['totalBookings'])).toInt(),
+      physicalBookings: (n(s['physicalBookings'])).toInt(),
+      onlineBookings: (n(s['onlineBookings'])).toInt(),
+      totalIncome: (n(s['totalIncome'])).toDouble(),
+      physicalIncome: (n(s['physicalIncome'])).toDouble(),
+      onlineIncome: (n(s['onlineIncome'])).toDouble(),
+      safeOnlineIncome: (n(s['safeOnlineIncome'])).toDouble(),
+      commissionPercentage: (n(s['commissionPercentage'])).toDouble(),
+      commissionAmount: (n(s['commissionAmount'])).toDouble(),
+      netIncome: (n(s['netIncome'])).toDouble(),
+      totalPaidOut: (n(d['totalPaidOut'])).toDouble(),
+      heldByManager: (n(d['heldByManager'])).toDouble(),
+      heldByAdmin: (n(d['heldByAdmin'])).toDouble(),
+      totalToBePaid: (n(d['totalToBePaid'])).toDouble(),
+      actualPaymentToBePaid: (n(d['actualPaymentToBePaid'])).toDouble(),
+      cancellationLimit: (n(json['cancellationLimit'])).toInt(),
     );
   }
 }

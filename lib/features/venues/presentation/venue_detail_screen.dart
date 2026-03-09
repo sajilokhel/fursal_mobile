@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'widgets/venue_image_carousel.dart';
 import 'widgets/review_section.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class VenueDetailScreen extends ConsumerWidget {
   final String venueId;
@@ -276,9 +277,18 @@ class VenueDetailScreen extends ConsumerWidget {
                                 bottom: 8,
                                 right: 8,
                                 child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    // Open external map or full screen map
-                                    // For now, maybe just show a snackbar or nothing
+                                  onPressed: () async {
+                                    final url = Uri.parse(
+                                        'https://www.google.com/maps/search/?api=1&query=${venue.latitude},${venue.longitude}');
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url);
+                                    } else {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Could not open map app')),
+                                        );
+                                      }
+                                    }
                                   },
                                   icon: const Icon(Icons.map, size: 16),
                                   label: const Text('Open Maps'),

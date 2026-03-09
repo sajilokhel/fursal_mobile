@@ -8,19 +8,39 @@ class SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       backgroundColor: AppTheme.primaryColor,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        child: Stack(
           children: [
-            // You can replace this with your app logo
-            Icon(
-              Icons.sports_soccer,
-              size: 80,
-              color: Colors.white,
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.sports_soccer,
+                    size: 80,
+                    color: Colors.white,
+                  ),
+                  SizedBox(height: 24),
+                  CircularProgressIndicator(
+                    color: Colors.white,
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 24),
-            CircularProgressIndicator(
-              color: Colors.white,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 24,
+              child: Center(
+                child: Text(
+                  'powered by sevenx',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

@@ -270,17 +270,16 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Sport Type',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 14),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedSportType,
+              initialValue: _selectedSportType,
               decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -291,8 +290,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      const BorderSide(color: AppTheme.primaryColor),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor),
                 ),
               ),
               items: kAllSports

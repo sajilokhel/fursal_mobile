@@ -8,6 +8,7 @@ import '../../../shared/widgets/venue_horizontal_card.dart';
 import '../../../core/services/location_service.dart';
 import 'home_sport_chip.dart';
 import 'promo_banner_card.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -25,29 +26,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final locationState = ref.watch(locationProvider);
     final theme = Theme.of(context);
 
+    final user = FirebaseAuth.instance.currentUser;
+    final userName = user?.displayName?.split(' ').first ?? user?.email?.split('@').first ?? 'Guest';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FA),
-      body: CustomScrollView(
-        slivers: [
-          // ── Search Bar ──────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search venues, sports...',
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                ),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF6F7FA),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 64,
+        leadingWidth: 60,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: PopupMenuButton<String>(
+            offset: const Offset(0, 50),
+            icon: CircleAvatar(
+              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              child: Icon(Icons.person, color: theme.primaryColor, size: 20),
+            ),
+            splashRadius: 24,
+            padding: EdgeInsets.zero,
+            onSelected: (value) {
+              if (value == 'edit') {
+                context.push('/profile/edit');
+              } else if (value == 'settings') {
+                context.push('/profile/settings');
+              } else if (value == 'logout') {
+                FirebaseAuth.instance.signOut();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'edit',
+                child: Text('Edit Profile'),
               ),
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Text('Settings'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Text('Logout'),
+              ),
+            ],
+          ),
+        ),
+        title: Text(
+          'Hello, $userName',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: Colors.black87),
+              onPressed: () {
+                // Push or go to notifications screen
+                // context.push('/notifications');
+              },
             ),
           ),
+        ],
+      ),
+      body: CustomScrollView(
+        slivers: [
 
           // ── Browse by sports ────────────────────────────────
           SliverToBoxAdapter(

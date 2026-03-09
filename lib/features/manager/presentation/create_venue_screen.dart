@@ -183,7 +183,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
             const SizedBox(height: 16),
             _buildLabel('Sport Type'),
             DropdownButtonFormField<String>(
-              value: _selectedSportType,
+              initialValue: _selectedSportType,
               decoration: _inputDecoration('Select sport type'),
               items: kAllSports
                   .map(
@@ -214,28 +214,29 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   }
 
   Widget _buildLocationStep() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLabel('Address (Optional)'),
-              TextFormField(
-                decoration: _inputDecoration('e.g., Kumaripati, Lalitpur'),
-              ),
-              const SizedBox(height: 16),
-              _buildLabel('Map Location'),
-              const Text(
-                'Click on the map or search to set your venue location',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ],
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLabel('Address (Optional)'),
+                TextFormField(
+                  decoration: _inputDecoration('e.g., Kumaripati, Lalitpur'),
+                ),
+                const SizedBox(height: 16),
+                _buildLabel('Map Location'),
+                const Text(
+                  'Click on the map or search to set your venue location',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
           ),
-        ),
-        Expanded(
-          child: Container(
+          Container(
+            height: 350,
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
@@ -322,9 +323,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-      ],
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 

@@ -107,7 +107,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text(
-                    'No bookings yet',
+                    'You have not booked yet',
                     style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
                 ],

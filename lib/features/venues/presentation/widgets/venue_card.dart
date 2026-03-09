@@ -17,23 +17,25 @@ class VenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 160,
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
+    return GestureDetector(
+      onTap: onSeeDetails,
+      child: Container(
+        height: 180, // Increased height to fit buttons
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
           // Image Section (Left)
           Expanded(
             flex: 4,
@@ -63,30 +65,6 @@ class VenueCard extends StatelessWidget {
                             size: 40,
                             color: Colors.grey.shade300,
                           ),
-                  ),
-                ),
-                // Overlay buttons
-                Positioned(
-                  bottom: 12,
-                  left: 8,
-                  right: 8,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _OverlayButton(
-                          text: 'Book Now',
-                          onTap: onSeeDetails,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _OverlayButton(
-                          text: 'Map',
-                          icon: Icons.location_on,
-                          onTap: onViewOnMap,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
@@ -167,7 +145,7 @@ class VenueCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.bottomRight,
                     child: Text(
@@ -179,14 +157,34 @@ class VenueCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _OverlayButton(
+                          text: 'Book Now',
+                          onTap: onSeeDetails,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _OverlayButton(
+                          text: 'Map',
+                          icon: Icons.location_on,
+                          onTap: onViewOnMap,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _OverlayButton extends StatelessWidget {

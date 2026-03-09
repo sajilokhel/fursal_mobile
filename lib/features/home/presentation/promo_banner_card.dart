@@ -72,14 +72,18 @@ class _PromoBannerCardState extends State<PromoBannerCard>
       height: 150,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F4C2A), Color(0xFF1A7A42), Color(0xFF25A85C)],
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withOpacity(0.8),
+            Theme.of(context).primaryColor.withOpacity(0.6),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A7A42).withOpacity(0.4),
+            color: Theme.of(context).primaryColor.withOpacity(0.4),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -200,14 +204,14 @@ class _PromoBannerCardState extends State<PromoBannerCard>
                           Text(
                             'Find a Venue',
                             style: TextStyle(
-                              color: const Color(0xFF0F4C2A),
+                              color: Theme.of(context).primaryColor,
                               fontWeight: FontWeight.w800,
                               fontSize: 13,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.arrow_forward_rounded,
-                              size: 14, color: Color(0xFF0F4C2A)),
+                          Icon(Icons.arrow_forward_rounded,
+                              size: 14, color: Theme.of(context).primaryColor),
                         ],
                       ),
                     ),
