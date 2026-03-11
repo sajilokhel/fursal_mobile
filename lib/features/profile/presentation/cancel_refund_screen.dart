@@ -76,9 +76,9 @@ class CancelRefundScreen extends StatelessWidget {
               context,
               icon: Icons.phone_in_talk_outlined,
               title: 'Call Us',
-              subtitle: '+977-9811826820',
+              subtitle: '+977-9768704211',
               color: Colors.blue,
-              onTap: () => _launchUrl('tel:+9779811826820'),
+              onTap: () => _launchUrl('tel:+9779768704211'),
             ),
             const SizedBox(height: 12),
             _buildContactCard(
@@ -94,9 +94,9 @@ class CancelRefundScreen extends StatelessWidget {
               context,
               icon: Icons.chat_outlined,
               title: 'WhatsApp',
-              subtitle: '+977 9811826820',
+              subtitle: '+977 9768704211',
               color: Colors.green,
-              onTap: () => _launchUrl('https://wa.me/9779811826820'),
+              onTap: () => _launchUrl('https://wa.me/9779768704211'),
             ),
             const SizedBox(height: 32),
             Container(
@@ -148,7 +148,7 @@ class CancelRefundScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => _launchUrl('tel:+9779811826820'),
+                onPressed: () => _launchUrl('tel:+9779768704211'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: const BorderSide(color: AppTheme.primaryColor),
