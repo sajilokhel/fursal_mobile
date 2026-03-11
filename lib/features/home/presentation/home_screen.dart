@@ -44,28 +44,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         toolbarHeight: 64,
-        leadingWidth: 60,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: GestureDetector(
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
-            child: CircleAvatar(
-              backgroundColor: theme.primaryColor.withOpacity(0.1),
-              backgroundImage:
-                  user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-              child: user?.photoURL == null
-                  ? Icon(Icons.person, color: theme.primaryColor, size: 20)
-                  : null,
+        leadingWidth: 0,
+        leading: const SizedBox.shrink(),
+        title: Row(
+          children: [
+            GestureDetector(
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: theme.primaryColor.withOpacity(0.1),
+                backgroundImage: user?.photoURL != null
+                    ? NetworkImage(user!.photoURL!)
+                    : null,
+                child: user?.photoURL == null
+                    ? Icon(Icons.person, color: theme.primaryColor, size: 18)
+                    : null,
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Text(
+              'Hello, $userName',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
         ),
-        title: Text(
-          'Hello, $userName',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+        centerTitle: false,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
