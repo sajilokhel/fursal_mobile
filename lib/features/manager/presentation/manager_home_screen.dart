@@ -121,6 +121,11 @@ class ManagerHomeScreen extends ConsumerWidget {
                 onTap: () {
                   context.push('/manager/venues/edit-venue/${venue.id}');
                 },
+                secondButtonLabel: 'Slots',
+                secondButtonIcon: Icons.calendar_today_outlined,
+                onSecondTap: () {
+                  context.push('/manager/venues/slots/${venue.id}');
+                },
               );
             },
           );

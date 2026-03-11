@@ -13,6 +13,7 @@ import '../features/manager/presentation/manager_bookings_screen.dart';
 import '../features/manager/presentation/manager_dashboard_screen.dart';
 import '../features/manager/presentation/manager_payments_screen.dart';
 import '../features/manager/presentation/manager_venue_edit_screen.dart';
+import '../features/manager/presentation/manager_venue_slots_screen.dart';
 import '../features/manager/presentation/manager_transactions_screen.dart';
 
 import '../features/manager/presentation/manager_home_screen.dart';
@@ -155,6 +156,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                           tabStr != null ? int.tryParse(tabStr) : null;
                       return ManagerVenueEditScreen(
                           venueId: id, initialTab: initialTab);
+                    },
+                  ),
+                  GoRoute(
+                    path: 'slots/:id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) {
+                      final id = state.pathParameters['id']!;
+                      return ManagerVenueSlotsScreen(venueId: id);
                     },
                   ),
                 ],

@@ -8,6 +8,9 @@ class VenueListCard extends StatelessWidget {
   final VoidCallback? onTap;
   final String buttonLabel;
   final IconData? buttonIcon;
+  final VoidCallback? onSecondTap;
+  final String? secondButtonLabel;
+  final IconData? secondButtonIcon;
 
   const VenueListCard({
     super.key,
@@ -15,6 +18,9 @@ class VenueListCard extends StatelessWidget {
     this.onTap,
     this.buttonLabel = 'Book Now',
     this.buttonIcon,
+    this.onSecondTap,
+    this.secondButtonLabel,
+    this.secondButtonIcon,
   });
 
   @override
@@ -198,29 +204,80 @@ class VenueListCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
 
-                    // Action button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: onTap,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
+                    // Action button(s)
+                    if (onSecondTap != null && secondButtonLabel != null)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: onTap,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                elevation: 0,
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              icon: buttonIcon != null
+                                  ? Icon(buttonIcon, size: 16)
+                                  : const SizedBox.shrink(),
+                              label: Text(buttonLabel),
+                            ),
                           ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: onSecondTap,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: const BorderSide(
+                                    color: AppTheme.primaryColor),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              icon: secondButtonIcon != null
+                                  ? Icon(secondButtonIcon, size: 16)
+                                  : const SizedBox.shrink(),
+                              label: Text(secondButtonLabel!),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                          icon: buttonIcon != null
+                              ? Icon(buttonIcon, size: 16)
+                              : const SizedBox.shrink(),
+                          label: Text(buttonLabel),
                         ),
-                        icon: buttonIcon != null
-                            ? Icon(buttonIcon, size: 16)
-                            : const SizedBox.shrink(),
-                        label: Text(buttonLabel),
                       ),
-                    ),
                   ],
                 ),
               ),

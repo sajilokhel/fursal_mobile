@@ -96,6 +96,25 @@ class VenueRepository {
     });
   }
 
+  /// Returns the slot document ID from the `slots` collection for a given
+  /// venue/date/startTime combination. Returns null if not found or on error.
+  Future<String?> getSlotId(
+      String venueId, String date, String startTime) async {
+    try {
+      final snapshot = await _firestore
+          .collection('slots')
+          .where('venueId', isEqualTo: venueId)
+          .where('date', isEqualTo: date)
+          .where('startTime', isEqualTo: startTime)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isEmpty) return null;
+      return snapshot.docs.first.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> addReview({
     required String venueId,
     required double rating,
