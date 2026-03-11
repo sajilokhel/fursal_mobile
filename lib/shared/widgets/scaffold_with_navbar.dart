@@ -26,6 +26,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       extendBody: false,
+      backgroundColor: const Color(0xFFF6F7FA),
       body: SafeArea(
         child: navigationShell,
       ),

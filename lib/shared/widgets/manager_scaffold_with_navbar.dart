@@ -22,6 +22,7 @@ class ManagerScaffoldWithNavBar extends StatelessWidget {
 
     return Scaffold(
       extendBody: false,
+      // backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(
         child: navigationShell,
       ),
