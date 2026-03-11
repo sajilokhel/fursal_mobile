@@ -247,9 +247,43 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating venue: $e')),
-        );
+        if (e is VenueDebugException) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(e.title, style: const TextStyle(color: Colors.red, fontSize: 16)),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('URL:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SelectableText(e.url, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 8),
+                    const Text('Status Code:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${e.statusCode}', style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 8),
+                    const Text('Request Body Sent:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SelectableText(e.requestBody, style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+                    const SizedBox(height: 8),
+                    const Text('Server Response:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SelectableText(e.responseBody, style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
       }
     } finally {
       if (mounted) {

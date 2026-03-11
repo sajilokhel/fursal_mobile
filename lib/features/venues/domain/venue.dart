@@ -64,18 +64,17 @@ class Venue {
   Map<String, dynamic> toMap() {
     return {
       'name': name,
-      'description': description,
+      'description': description ?? '',
       'latitude': latitude,
       'longitude': longitude,
-      'address': address,
+      'address': address ?? '',
       'imageUrls': imageUrls,
       'pricePerHour': pricePerHour,
       'attributes': attributes,
-      'createdAt': createdAt,
-      'managedBy': managedBy,
-      'averageRating': averageRating,
-      'reviewCount': reviewCount,
       'sportType': sportType,
+      // Metadata/Financial fields often required by venues API
+      'advancePercentage': 100, // Default to full payment if missing
+      'platformCommission': 0, 
     };
   }
 }

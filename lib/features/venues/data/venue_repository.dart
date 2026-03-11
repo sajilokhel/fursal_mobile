@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -30,6 +31,25 @@ final venueReviewsProvider =
     StreamProvider.family<List<Review>, String>((ref, venueId) {
   return ref.watch(venueRepositoryProvider).getReviews(venueId);
 });
+
+class VenueDebugException implements Exception {
+  final String title;
+  final String url;
+  final String requestBody;
+  final int statusCode;
+  final String responseBody;
+
+  const VenueDebugException({
+    required this.title,
+    required this.url,
+    required this.requestBody,
+    required this.statusCode,
+    required this.responseBody,
+  });
+
+  @override
+  String toString() => '$title (HTTP $statusCode)';
+}
 
 class VenueRepository {
   final FirebaseFirestore _firestore;
@@ -164,51 +184,67 @@ class VenueRepository {
     final token = await user.getIdToken();
     final baseUrl = AppConfig.apiUrl;
 
-    // Use PATCH for updates as per API docs
     // Whitelisted fields: name, description, pricePerHour, advancePercentage, platformCommission, imageUrls, attributes, address, latitude, longitude, sportType
     final body = venue.toMap();
+    final url = '$baseUrl/venues/${venue.id}';
+    final requestBodyJson = jsonEncode(body);
 
-    print('Sending venue update PATCH to $baseUrl/venues/${venue.id}: $body');
-
-    final response = await http.patch(
-      Uri.parse('$baseUrl/venues/${venue.id}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(body),
-    );
-
-    print('Response: ${response.statusCode} - ${response.body}');
+    http.Response response;
+    try {
+      response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: requestBodyJson,
+      );
+    } catch (networkError) {
+      throw VenueDebugException(
+        title: 'Network Error',
+        url: url,
+        requestBody: requestBodyJson,
+        statusCode: 0,
+        responseBody: networkError.toString(),
+      );
+    }
 
     if (response.statusCode != 200) {
-      final errorMsg = json.decode(response.body)['error'] ?? 'Failed to update venue';
-      throw Exception(errorMsg);
+      throw VenueDebugException(
+        title: 'Server Rejected Update',
+        url: url,
+        requestBody: requestBodyJson,
+        statusCode: response.statusCode,
+        responseBody: response.body,
+      );
     }
   }
 
   Future<String> uploadVenueImage(File file, String venueId) async {
-    // Use backend upload API instead of direct Firebase Storage
+    // Ported from the recommended UploadThing client flow.
+    // UploadThing usually requires a two-step process (get presigned URL -> upload to S3),
+    // but the backend route handler can also handle multipart/form-data with the 
+    // correct headers and field names.
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
     final token = await user.getIdToken();
     final baseUrl = AppConfig.apiUrl;
 
-    // Create multipart request for UploadThing backend
-    // The 'uploadthing' route expects specific fields when called directly.
+    // Based on the provided API docs, the route is /api/uploadthing
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/uploadthing'),
     );
 
+    // Required Authorization header for the UploadThing middleware (core.ts)
     request.headers['Authorization'] = 'Bearer $token';
     
-    // UploadThing usually requires the file field to be named 'files' or 'file'
-    // and might require metadata or 'actionType' if not using their client.
-    // Given the "invalid input" error, we'll try standard keys.
+    // Note: 'imageUploader' is the slug used in the backend router (core.ts)
+    // UploadThing's internal multipart handler typically expects specific fields.
+    // If calling directly without the SDK, 'files' is the standard field name.
     request.files.add(await http.MultipartFile.fromPath(
-      'files', // UploadThing often uses 'files' for multiple or single
+      'files', 
       file.path,
       filename: 'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
     ));
@@ -218,11 +254,26 @@ class VenueRepository {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = jsonDecode(response.body);
-      // Handle various response shapes from UploadThing
+      
+      // According to docs, we should prioritize 'ufsUrl' over 'url'
+      // The response structure can vary, but usually looks like:
+      // { "files": [{ "ufsUrl": "...", "url": "..." }], ... } 
+      // or a list of file objects directly.
+      
       if (data is List && data.isNotEmpty) {
-        return data[0]['url'] ?? '';
+        final fileData = data[0];
+        return fileData['ufsUrl'] ?? fileData['url'] ?? '';
       }
-      return data['url'] ?? data['fileUrl'] ?? '';
+      
+      if (data is Map && data.containsKey('files')) {
+        final files = data['files'] as List;
+        if (files.isNotEmpty) {
+          final fileData = files[0];
+          return fileData['ufsUrl'] ?? fileData['url'] ?? '';
+        }
+      }
+
+      return data['url'] ?? data['ufsUrl'] ?? data['fileUrl'] ?? '';
     } else {
       throw Exception('Failed to upload image: ${response.body}');
     }
