@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../../bookings/domain/booking.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../auth/data/auth_repository.dart';
+import '../../../venues/data/venue_repository.dart';
+import '../../../../features/bookings/domain/booking.dart';
 import 'status_helpers.dart';
 
 /// Distinct manager booking card with status-coloured left accent,
 /// clear customer/time/amount hierarchy, and a Physical/Online badge.
-class BookingCard extends StatelessWidget {
+class BookingCard extends ConsumerWidget {
   final Booking booking;
   final VoidCallback? onTap;
   final VoidCallback? onMarkPaid;
@@ -13,7 +16,7 @@ class BookingCard extends StatelessWidget {
       {super.key, required this.booking, this.onTap, this.onMarkPaid});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = getStatusColor(booking.status);
     final isConfirmed = booking.status.toLowerCase() == 'confirmed' ||
         booking.status.toLowerCase() == 'booked';
@@ -21,7 +24,26 @@ class BookingCard extends StatelessWidget {
         booking.status.toLowerCase() == 'expired';
     final isPhysical =
         booking.bookingType == 'physical' || booking.bookingType == 'manual';
-    final customerName = booking.userName ?? 'Customer';
+    
+    // Get actual customer name
+    final usersAsync = ref.watch(allUsersProvider);
+    final userList = usersAsync.value ?? [];
+    final customerName = userList
+            .where((u) => u.uid == booking.userId)
+            .firstOrNull
+            ?.displayName ??
+        booking.userName ??
+        'Customer';
+
+    // Get actual venue name
+    final venuesAsync = ref.watch(venuesProvider);
+    final venueList = venuesAsync.value ?? [];
+    final venueName = venueList
+            .where((v) => v.id == booking.venueId)
+            .firstOrNull
+            ?.name ??
+        booking.venueName;
+
     final amountPaid = booking.esewaAmount ?? 0;
     // If backend already marked this booking as fully paid, treat due as 0
     final isAlreadyPaid = booking.paymentStatus == 'full';
@@ -128,7 +150,7 @@ class BookingCard extends StatelessWidget {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                booking.venueName,
+                                venueName,
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600),
                                 overflow: TextOverflow.ellipsis,

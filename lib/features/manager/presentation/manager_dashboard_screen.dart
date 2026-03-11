@@ -32,6 +32,7 @@ class _ManagerDashboardScreenState
     }
 
     final venuesAsync = ref.watch(venuesProvider);
+    final usersAsync = ref.watch(allUsersProvider);
 
     return Scaffold(
       body: venuesAsync.when(
@@ -228,8 +229,23 @@ class _ManagerDashboardScreenState
                               final isPhysical =
                                   booking.bookingType == 'physical' ||
                                       booking.bookingType == 'manual';
-                              final customerName =
-                                  booking.userName ?? 'Customer';
+                              
+                              // Get actual customer name
+                              final userList = usersAsync.value ?? [];
+                              final actualCustomerName = userList
+                                      .where((u) => u.uid == booking.userId)
+                                      .firstOrNull
+                                      ?.displayName ??
+                                  booking.userName ??
+                                  'Customer';
+
+                              // Get the actual venue name from the venues list if venueName is an ID
+                              final venueList = venuesAsync.value ?? [];
+                              final actualVenueName = venueList
+                                          .where((v) => v.id == booking.venueId)
+                                          .firstOrNull
+                                          ?.name ??
+                                      booking.venueName;
 
                               // Calculate amount to pay
                               final amountPaid = booking.esewaAmount ?? 0;
@@ -257,7 +273,7 @@ class _ManagerDashboardScreenState
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              booking.venueName,
+                                              actualVenueName,
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.bold,
@@ -302,7 +318,7 @@ class _ManagerDashboardScreenState
                                           ),
                                           const SizedBox(width: 6),
                                           Text(
-                                            customerName,
+                                            actualCustomerName,
                                             style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w500,

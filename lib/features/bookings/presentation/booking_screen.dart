@@ -623,50 +623,38 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (booking.venueName.startsWith('Venue #'))
-                        ref.watch(venueProvider(booking.venueId)).when(
-                              data: (venue) => Text(
-                                venue?.name ?? booking.venueName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                      ref.watch(venueProvider(booking.venueId)).when(
+                            data: (venue) => Text(
+                              venue?.name ?? booking.venueName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black87,
                               ),
-                              loading: () => Text(
-                                booking.venueName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            loading: () => Text(
+                              booking.venueName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black87,
                               ),
-                              error: (_, __) => Text(
-                                booking.venueName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            error: (_, __) => Text(
+                              booking.venueName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black87,
                               ),
-                            )
-                      else
-                        Text(
-                          booking.venueName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.black87,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       const SizedBox(height: 4),
                       Row(
                         children: [

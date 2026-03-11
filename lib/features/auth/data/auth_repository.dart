@@ -26,6 +26,10 @@ final authStateProvider = StreamProvider<AuthUser?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });
 
+final allUsersProvider = StreamProvider<List<AuthUser>>((ref) {
+  return ref.watch(authRepositoryProvider).getUsers();
+});
+
 class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -60,6 +64,12 @@ class AuthRepository {
         // StreamProvider surfaces an error the UI can react to.
         rethrow;
       }
+    });
+  }
+
+  Stream<List<AuthUser>> getUsers() {
+    return _firestore.collection('users').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => AuthUser.fromMap(doc.data(), doc.id)).toList();
     });
   }
 

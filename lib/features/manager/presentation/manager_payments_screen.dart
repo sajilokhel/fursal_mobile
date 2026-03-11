@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:http/http.dart' as http;
 import '../../auth/data/auth_repository.dart';
+import '../../auth/domain/auth_user.dart';
 import '../data/manager_stats_provider.dart';
 import '../data/manager_payments_provider.dart';
 import '../../venues/data/venue_repository.dart';
@@ -33,6 +34,7 @@ class _ManagerPaymentsScreenState
     }
 
     final venuesAsync = ref.watch(venuesProvider);
+    final usersAsync = ref.watch(allUsersProvider);
     final statsAsync = ref.watch(managerStatsProvider(userId));
 
     return Scaffold(
@@ -102,7 +104,13 @@ class _ManagerPaymentsScreenState
               // Group by venueName
               final grouped = <String, List<Booking>>{};
               for (final b in dueBookings) {
-                grouped.putIfAbsent(b.venueName, () => []).add(b);
+                // Get the actual venue name from the venues list if venueName is an ID
+                final venueName = allVenues
+                        .where((v) => v.id == b.venueId)
+                        .firstOrNull
+                        ?.name ??
+                    b.venueName;
+                grouped.putIfAbsent(venueName, () => []).add(b);
               }
 
               return SingleChildScrollView(
@@ -178,6 +186,7 @@ class _ManagerPaymentsScreenState
                         for (final booking in entry.value)
                           _DuePaymentCard(
                             booking: booking,
+                            users: usersAsync.value ?? [],
                             onTap: () => _openDetail(context, booking),
                             onMarkPaid: () =>
                                 _markPaid(context, booking, userId),
@@ -251,46 +260,56 @@ class _ManagerPaymentsScreenState
 
     final method = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Mark as Paid'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Rs. ${due.toStringAsFixed(0)} due from ${booking.userName ?? "customer"}',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            const Text('How was it paid?',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _PayMethodBtn(
-                    label: 'Cash',
-                    icon: Icons.payments_outlined,
-                    onTap: () => Navigator.pop(ctx, 'cash'),
+      builder: (ctx) {
+        final users = ref.read(allUsersProvider).value ?? [];
+        final actualCustomerName = users
+                .where((u) => u.uid == booking.userId)
+                .firstOrNull
+                ?.displayName ??
+            booking.userName ??
+            "customer";
+        
+        return AlertDialog(
+          title: const Text('Mark as Paid'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Rs. ${due.toStringAsFixed(0)} due from $actualCustomerName',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              const Text('How was it paid?',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PayMethodBtn(
+                      label: 'Cash',
+                      icon: Icons.payments_outlined,
+                      onTap: () => Navigator.pop(ctx, 'cash'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _PayMethodBtn(
-                    label: 'Online',
-                    icon: Icons.phone_android,
-                    onTap: () => Navigator.pop(ctx, 'online'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PayMethodBtn(
+                      label: 'Online',
+                      icon: Icons.phone_android,
+                      onTap: () => Navigator.pop(ctx, 'online'),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
           ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
-        ],
-      ),
+        );
+      },
     );
     if (method == null || !context.mounted) return;
 
@@ -533,10 +552,11 @@ class _VenueGroupHeader extends StatelessWidget {
 
 class _DuePaymentCard extends StatelessWidget {
   final Booking booking;
+  final List<AuthUser> users;
   final VoidCallback onTap;
   final VoidCallback onMarkPaid;
   const _DuePaymentCard(
-      {required this.booking, required this.onTap, required this.onMarkPaid});
+      {required this.booking, required this.users, required this.onTap, required this.onMarkPaid});
 
   @override
   Widget build(BuildContext context) {
@@ -544,7 +564,13 @@ class _DuePaymentCard extends StatelessWidget {
         booking.bookingType == 'physical' || booking.bookingType == 'manual';
     final due =
         isPhys ? booking.amount : booking.amount - (booking.esewaAmount ?? 0);
-    final customerName = booking.userName ?? 'Customer';
+    
+    final customerName = users
+            .where((u) => u.uid == booking.userId)
+            .firstOrNull
+            ?.displayName ??
+        booking.userName ??
+        'Customer';
 
     return GestureDetector(
       onTap: onTap,
