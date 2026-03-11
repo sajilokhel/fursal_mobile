@@ -164,16 +164,14 @@ class VenueRepository {
     final token = await user.getIdToken();
     final baseUrl = AppConfig.apiUrl;
 
-    // Include venue ID in the body for updates
-    final body = {
-      'id': venue.id, // Important: Include ID for updates
-      ...venue.toMap(),
-    };
+    // Use PATCH for updates as per API docs
+    // Whitelisted fields: name, description, pricePerHour, advancePercentage, platformCommission, imageUrls, attributes, address, latitude, longitude, sportType
+    final body = venue.toMap();
 
-    print('Sending venue update: $body'); // Debug log
+    print('Sending venue update PATCH to $baseUrl/venues/${venue.id}: $body');
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/venues'),
+    final response = await http.patch(
+      Uri.parse('$baseUrl/venues/${venue.id}'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -181,10 +179,11 @@ class VenueRepository {
       body: jsonEncode(body),
     );
 
-    print('Response: ${response.statusCode} - ${response.body}'); // Debug log
+    print('Response: ${response.statusCode} - ${response.body}');
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to update venue: ${response.body}');
+    if (response.statusCode != 200) {
+      final errorMsg = json.decode(response.body)['error'] ?? 'Failed to update venue';
+      throw Exception(errorMsg);
     }
   }
 
