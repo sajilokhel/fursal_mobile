@@ -74,7 +74,21 @@ class AuthRepository {
   }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
-    await _auth.signInWithEmailAndPassword(email: email, password: password);
+    final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+    
+    // Check if user exists in Firestore; if not, repair it.
+    // This happens if the user was created via the Firebase Console 
+    // or if the initial _saveUserToFirestore call failed.
+    if (credential.user != null) {
+      final doc = await _firestore
+          .collection('users')
+          .doc(credential.user!.uid)
+          .get();
+      if (!doc.exists) {
+        // Attempt to repair by syncing with backend/Firestore
+        await _saveUserToFirestore(credential.user!, credential.user!.displayName ?? '');
+      }
+    }
   }
 
   Future<void> createUserWithEmailAndPassword(
