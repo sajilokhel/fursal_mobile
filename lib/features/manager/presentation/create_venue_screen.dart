@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../../core/theme.dart';
 import '../../../core/sport_types.dart';
-import '../data/venue_repository.dart';
-import '../domain/venue.dart';
+import '../../venues/data/venue_repository.dart';
 
 class CreateVenueScreen extends ConsumerStatefulWidget {
   const CreateVenueScreen({super.key});
@@ -20,17 +21,39 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
 
-  // State variables for form fields
+  // Basic Info
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  LatLng? _selectedLocation;
   String _selectedSportType = 'futsal';
+
+  // Location
+  final _addressController = TextEditingController();
+  LatLng? _selectedLocation;
+
+  // Slot Config
+  TimeOfDay _openingTime = const TimeOfDay(hour: 6, minute: 0);
+  TimeOfDay _closingTime = const TimeOfDay(hour: 22, minute: 0);
+  final _slotDurationController = TextEditingController(text: '60');
+  final List<bool> _daysOfWeek = List.filled(7, true);
+
+  // Images
+  final List<File> _pendingImages = [];
+  final ImagePicker _picker = ImagePicker();
+
+  // Submission
+  bool _isSubmitting = false;
+  String _submitStatus = '';
+
+  static const List<String> _dayNames = [
+    'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+  ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() => setState(() {}));
   }
 
   @override
@@ -39,6 +62,8 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     _nameController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _addressController.dispose();
+    _slotDurationController.dispose();
     super.dispose();
   }
 
@@ -69,51 +94,91 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        physics:
-            const NeverScrollableScrollPhysics(), // Prevent swiping to force validation if needed
+      body: Stack(
         children: [
-          _buildBasicInfoStep(),
-          _buildLocationStep(),
-          const Center(child: Text('Slot Config Step - Coming Soon')),
-          const Center(child: Text('Images Step - Coming Soon')),
+          TabBarView(
+            controller: _tabController,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildBasicInfoTab(),
+              _buildLocationTab(),
+              _buildSlotConfigTab(),
+              _buildImagesTab(),
+            ],
+          ),
+          if (_isSubmitting)
+            Container(
+              color: Colors.black45,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
+                    Text(
+                      _submitStatus,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5))
           ],
         ),
-        child: ElevatedButton(
-          onPressed: () {
-            if (_tabController.index < 3) {
-              _tabController.animateTo(_tabController.index + 1);
-            } else {
-              _submitForm();
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black87,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            if (_tabController.index > 0) ...[
+              OutlinedButton(
+                onPressed: _isSubmitting
+                    ? null
+                    : () => _tabController.animateTo(_tabController.index - 1),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.black87,
+                  side: const BorderSide(color: Colors.black87),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('← Back'),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : _onNextOrSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  disabledBackgroundColor:
+                      AppTheme.primaryColor.withValues(alpha: 0.6),
+                ),
+                child: Text(
+                  _tabController.index < 3
+                      ? 'Next: ${_getNextStepName()} →'
+                      : 'Create Venue',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
-          ),
-          child: Text(
-            _tabController.index < 3
-                ? 'Next: ${_getNextStepName()}'
-                : 'Create Venue',
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold),
-          ),
+          ],
         ),
       ),
     );
@@ -132,7 +197,20 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     }
   }
 
-  Widget _buildBasicInfoStep() {
+  void _onNextOrSubmit() {
+    if (_tabController.index == 0) {
+      if (!_formKey.currentState!.validate()) return;
+    }
+    if (_tabController.index < 3) {
+      _tabController.animateTo(_tabController.index + 1);
+    } else {
+      _submitForm();
+    }
+  }
+
+  // ─── BASIC INFO ────────────────────────────────────────────────────────────
+
+  Widget _buildBasicInfoTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -141,60 +219,51 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Add a new venue with location and slot configuration. Fill in all the details below.',
+              'Fill in the basic details for your new venue.',
               style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
             const SizedBox(height: 24),
-            _buildLabel('Venue Name *'),
+            _label('Venue Name *'),
             TextFormField(
               controller: _nameController,
-              decoration: _inputDecoration('e.g., Champion Sports Arena'),
+              decoration: _inputDeco('e.g., Champion Sports Arena'),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Venue name is required' : null,
             ),
             const SizedBox(height: 16),
-            _buildLabel('Description'),
+            _label('Description'),
             TextFormField(
               controller: _descriptionController,
               maxLines: 4,
-              decoration: _inputDecoration('Describe your venue...'),
+              decoration: _inputDeco('Describe your venue...'),
             ),
             const SizedBox(height: 16),
-            _buildLabel('Price per Hour (NPR) *'),
+            _label('Price per Hour (NPR) *'),
             TextFormField(
               controller: _priceController,
-              keyboardType: TextInputType.number,
-              decoration: _inputDecoration('e.g., 1500'),
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Attributes (Optional)'),
-            OutlinedButton.icon(
-              onPressed: () {
-                // TODO: Add attribute dialog
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: _inputDeco('e.g., 1500'),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Price is required';
+                if (double.tryParse(v.trim()) == null) {
+                  return 'Enter a valid number';
+                }
+                return null;
               },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Attribute'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.black87,
-                side: BorderSide(color: Colors.grey.shade300),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                alignment: Alignment.centerLeft,
-              ),
             ),
             const SizedBox(height: 16),
-            _buildLabel('Sport Type'),
+            _label('Sport Type'),
             DropdownButtonFormField<String>(
               initialValue: _selectedSportType,
-              decoration: _inputDecoration('Select sport type'),
+              decoration: _inputDeco('Select sport type'),
               items: kAllSports
-                  .map(
-                    (sport) => DropdownMenuItem(
+                  .map((sport) => DropdownMenuItem(
                       value: sport.id,
-                      child: Text('${sport.emoji}  ${sport.name}'),
-                    ),
-                  )
+                      child: Text('${sport.emoji}  ${sport.name}')))
                   .toList(),
-              onChanged: (value) {
-                if (value != null) setState(() => _selectedSportType = value);
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedSportType = v);
               },
             ),
           ],
@@ -203,41 +272,43 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-      ),
-    );
-  }
+  // ─── LOCATION ──────────────────────────────────────────────────────────────
 
-  Widget _buildLocationStep() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildLabel('Address (Optional)'),
-                TextFormField(
-                  decoration: _inputDecoration('e.g., Kumaripati, Lalitpur'),
-                ),
-                const SizedBox(height: 16),
-                _buildLabel('Map Location'),
-                const Text(
-                  'Click on the map or search to set your venue location',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+  Widget _buildLocationTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _label('Address (Optional)'),
+              TextField(
+                controller: _addressController,
+                decoration: _inputDeco('e.g., Kumaripati, Lalitpur'),
+              ),
+              const SizedBox(height: 12),
+              _label('Map Location'),
+              const Text(
+                'Tap on the map to set your venue location.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              if (_selectedLocation != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Selected: ${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
+                  style: const TextStyle(
+                      color: Colors.green,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500),
                 ),
               ],
-            ),
+            ],
           ),
-          Container(
-            height: 350,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade300),
@@ -247,13 +318,11 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
               children: [
                 FlutterMap(
                   options: MapOptions(
-                    initialCenter: const LatLng(27.7172, 85.3240), // Kathmandu
+                    initialCenter:
+                        _selectedLocation ?? const LatLng(27.7172, 85.3240),
                     initialZoom: 13.0,
-                    onTap: (position, latlng) {
-                      setState(() {
-                        _selectedLocation = latlng;
-                      });
-                    },
+                    onTap: (_, latlng) =>
+                        setState(() => _selectedLocation = latlng),
                   ),
                   children: [
                     TileLayer(
@@ -262,126 +331,433 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                       userAgentPackageName: 'com.example.fursal_mobile',
                     ),
                     if (_selectedLocation != null)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: _selectedLocation!,
-                            width: 40,
-                            height: 40,
-                            child: const Icon(Icons.location_on,
-                                color: Colors.red, size: 40),
-                          ),
-                        ],
-                      ),
+                      MarkerLayer(markers: [
+                        Marker(
+                          point: _selectedLocation!,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(Icons.location_on,
+                              color: Colors.red, size: 40),
+                        ),
+                      ]),
                   ],
                 ),
                 Positioned(
-                  top: 16,
-                  left: 16,
                   right: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 10)
-                      ],
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.search, color: Colors.grey),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: 'Search for a location...',
-                              border: InputBorder.none,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            enabled: false, // Make clickable in future
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
                   bottom: 16,
-                  right: 16,
                   child: FloatingActionButton(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
                     mini: true,
-                    onPressed: () {
-                      // Get current location
-                    },
-                    child: const Icon(Icons.my_location),
+                    backgroundColor: Colors.white,
+                    child: const Icon(Icons.my_location, color: Colors.black),
+                    onPressed: () {},
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  // ─── SLOT CONFIG ───────────────────────────────────────────────────────────
+
+  Widget _buildSlotConfigTab() {
+    final duration = int.tryParse(_slotDurationController.text) ?? 0;
+    final openMinutes = _openingTime.hour * 60 + _openingTime.minute;
+    final closeMinutes = _closingTime.hour * 60 + _closingTime.minute;
+    final totalMinutes = closeMinutes - openMinutes;
+    final slotsPerDay = (duration > 0 && totalMinutes > 0)
+        ? (totalMinutes / duration).floor()
+        : 0;
+    final activeDays = _daysOfWeek.where((d) => d).length;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Opening Time *'),
+                    _timePicker(
+                      time: _openingTime,
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                            context: context, initialTime: _openingTime);
+                        if (picked != null) setState(() => _openingTime = picked);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Closing Time *'),
+                    _timePicker(
+                      time: _closingTime,
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                            context: context, initialTime: _closingTime);
+                        if (picked != null) setState(() => _closingTime = picked);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
+          _label('Slot Duration (minutes) *'),
+          TextField(
+            controller: _slotDurationController,
+            keyboardType: TextInputType.number,
+            decoration: _inputDeco('e.g., 60'),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (slotsPerDay > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              '$slotsPerDay slots per day (${_fmt(_openingTime)} - ${_fmt(_closingTime)})',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 20),
+          _label('Operating Days *'),
+          ...List.generate(
+            7,
+            (i) => CheckboxListTile(
+              value: _daysOfWeek[i],
+              onChanged: (val) => setState(() => _daysOfWeek[i] = val ?? false),
+              title: Text(_dayNames[i], style: const TextStyle(fontSize: 14)),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              activeColor: AppTheme.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Configuration Summary:',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 8),
+                Text(
+                    '• Operating Hours: ${_fmt(_openingTime)} - ${_fmt(_closingTime)}'),
+                Text('• Slot Duration: $duration minutes'),
+                Text('• Slots per day: $slotsPerDay'),
+                Text('• Operating Days: $activeDays day(s)/week'),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey.shade400),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppTheme.primaryColor),
+  Widget _timePicker({required TimeOfDay time, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.access_time, size: 18, color: Colors.grey),
+            const SizedBox(width: 8),
+            Text(time.format(context), style: const TextStyle(fontSize: 14)),
+          ],
+        ),
       ),
     );
   }
 
+  String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  // ─── IMAGES ────────────────────────────────────────────────────────────────
+
+  Widget _buildImagesTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Venue Images (${_pendingImages.length})',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+              TextButton.icon(
+                onPressed: _isSubmitting ? null : _pickImage,
+                icon: const Icon(Icons.add_a_photo, size: 18),
+                label: const Text('Add'),
+                style:
+                    TextButton.styleFrom(foregroundColor: Colors.black87),
+              ),
+            ],
+          ),
+        ),
+        if (_pendingImages.isEmpty)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.image_not_supported_outlined,
+                      size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text('No images added yet',
+                      style: TextStyle(
+                          color: Colors.grey.shade600, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  const Text('Images are optional',
+                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: _pickImage,
+                    icon: const Icon(Icons.add_photo_alternate),
+                    label: const Text('Add Images'),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black87,
+                        side: const BorderSide(color: Colors.black87)),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: _pendingImages.length,
+              itemBuilder: (context, index) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(_pendingImages[index],
+                          fit: BoxFit.cover),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => setState(
+                            () => _pendingImages.removeAt(index)),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.close,
+                              size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 70);
+    if (image == null) return;
+    setState(() => _pendingImages.add(File(image.path)));
+  }
+
+  // ─── SUBMIT ────────────────────────────────────────────────────────────────
+
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) {
-      // Switch to first tab if validation fails there
-      _tabController.animateTo(0);
+    final duration = int.tryParse(_slotDurationController.text.trim());
+    if (duration == null || duration <= 0) {
+      _tabController.animateTo(2);
+      _showSnack('Please enter a valid slot duration');
       return;
     }
 
-    try {
-      final venue = Venue(
-        name: _nameController.text,
-        location: _selectedLocation != null
-            ? "${_selectedLocation!.latitude},${_selectedLocation!.longitude}"
-            : "Unknown Location",
-        pricePerHour: double.tryParse(_priceController.text) ?? 0.0,
-        description: _descriptionController.text,
-        sportType: _selectedSportType,
-      );
+    final openMinutes = _openingTime.hour * 60 + _openingTime.minute;
+    final closeMinutes = _closingTime.hour * 60 + _closingTime.minute;
+    if (closeMinutes <= openMinutes) {
+      _tabController.animateTo(2);
+      _showSnack('Closing time must be after opening time');
+      return;
+    }
 
-      final venueId =
-          await ref.read(venueRepositoryProvider).createVenue(venue);
+    final activeDayIndices = [
+      for (int i = 0; i < 7; i++)
+        if (_daysOfWeek[i]) i
+    ];
+    if (activeDayIndices.isEmpty) {
+      _tabController.animateTo(2);
+      _showSnack('Select at least one operating day');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _submitStatus = 'Starting submission...';
+    });
+
+    try {
+      final repo = ref.read(venueRepositoryProvider);
+
+      // 1. Upload images first (if any)
+      final List<String> uploadedUrls = [];
+      if (_pendingImages.isNotEmpty) {
+        for (int i = 0; i < _pendingImages.length; i++) {
+          setState(() => _submitStatus =
+              'Uploading image ${i + 1} of ${_pendingImages.length}...');
+          // Use 'temp' or dummy ID for filename generation since venue doesn't exist yet
+          final url = await repo.uploadVenueImage(_pendingImages[i], 'new');
+          uploadedUrls.add(url);
+        }
+      }
+
+      setState(() => _submitStatus = 'Creating venue profile...');
+
+      final slotConfig = {
+        'startTime': _fmt(_openingTime),
+        'endTime': _fmt(_closingTime),
+        'slotDuration': duration,
+        'daysOfWeek': activeDayIndices,
+      };
+
+      // 2. Create venue with the URLs already included
+      await repo.createVenue(
+        name: _nameController.text.trim(),
+        pricePerHour: double.parse(_priceController.text.trim()),
+        slotConfig: slotConfig,
+        description: _descriptionController.text.trim(),
+        latitude: _selectedLocation?.latitude,
+        longitude: _selectedLocation?.longitude,
+        address: _addressController.text.trim(),
+        sportType: _selectedSportType,
+        imageUrls: uploadedUrls,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Venue saved successfully! ID: $venueId')),
-        );
+            const SnackBar(content: Text('Venue created successfully!')));
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving venue: $e')),
-        );
+        setState(() {
+          _isSubmitting = false;
+          _submitStatus = '';
+        });
+        if (e is VenueDebugException) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(e.title,
+                  style:
+                      const TextStyle(color: Colors.red, fontSize: 16)),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('URL:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    SelectableText(e.url,
+                        style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 8),
+                    const Text('Status Code:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${e.statusCode}'),
+                    const SizedBox(height: 8),
+                    const Text('Request Body:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    SelectableText(e.requestBody,
+                        style: const TextStyle(
+                            fontSize: 11, fontFamily: 'monospace')),
+                    const SizedBox(height: 8),
+                    const Text('Server Response:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    SelectableText(e.responseBody,
+                        style: const TextStyle(
+                            fontSize: 11, fontFamily: 'monospace')),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Close')),
+              ],
+            ),
+          );
+        } else {
+          _showSnack('Error: $e');
+        }
       }
     }
   }
+
+  // ─── HELPERS ───────────────────────────────────────────────────────────────
+
+  void _showSnack(String msg) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: Text(text,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 14)),
+      );
+
+  InputDecoration _inputDeco(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey.shade400),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
+        ),
+      );
 }

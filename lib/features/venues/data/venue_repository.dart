@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:uploadthing/uploadthing.dart';
 import 'dart:convert';
 import 'dart:io';
+import '../../../core/utils/image_utils.dart';
 import '../domain/venue.dart';
 import '../domain/review.dart';
 import '../domain/venue_slot.dart';
@@ -240,17 +242,23 @@ class VenueRepository {
   }
 
   Future<String> uploadVenueImage(File file, String venueId) async {
-    const apiKey = String.fromEnvironment(
-      'UPLOADTHING_SECRET'    );
+    // Check .env first, then fallback to --dart-define
+    final apiKey = dotenv.env['UPLOADTHING_SECRET'] ?? 
+                 const String.fromEnvironment('UPLOADTHING_SECRET', defaultValue: '');
+                 
+    if (apiKey.isEmpty) {
+      throw Exception('UPLOADTHING_SECRET not found in .env or --dart-define. '
+          'Please ensure it is added to .env or run with --dart-define=UPLOADTHING_SECRET=your_key');
+    }
 
     final ut = UploadThing(apiKey);
-    final renamed = File(file.path.replaceAll(
-      RegExp(r'[^/]+$'),
-      'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    ));
-    await renamed.writeAsBytes(await file.readAsBytes());
 
-    final success = await ut.uploadFiles([renamed]);
+    // Compress the image before uploading
+    final compressedFile = await ImageUtils.compressImage(file);
+
+    // Instead of manually renaming and writing bytes (which can fail with path issues),
+    // we use the compressed file directly.
+    final success = await ut.uploadFiles([compressedFile]);
     if (!success || ut.uploadedFilesData.isEmpty) {
       throw Exception('UploadThing upload failed');
     }
@@ -259,5 +267,98 @@ class VenueRepository {
     final url = fileData['ufsUrl'] ?? fileData['url'] ?? '';
     if (url.isEmpty) throw Exception('UploadThing returned no URL');
     return url;
+  }
+
+  Future<String> createVenue({
+    required String name,
+    required double pricePerHour,
+    required Map<String, dynamic> slotConfig,
+    String? description,
+    double? latitude,
+    double? longitude,
+    String? address,
+    List<String> imageUrls = const [],
+    Map<String, dynamic> attributes = const {},
+    String sportType = 'futsal',
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+    final token = await user.getIdToken();
+
+    final url = '${AppConfig.apiUrl}/venues';
+    final body = <String, dynamic>{
+      'name': name,
+      'pricePerHour': pricePerHour,
+      'slotConfig': slotConfig,
+      'sportType': sportType,
+      'imageUrls': imageUrls,
+      'attributes': attributes,
+      if (description != null && description.isNotEmpty) 'description': description,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (address != null && address.isNotEmpty) 'address': address,
+    };
+    final requestBodyJson = jsonEncode(body);
+
+    http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: requestBodyJson,
+      );
+    } catch (networkError) {
+      throw VenueDebugException(
+        title: 'Network Error (Create Venue)',
+        url: url,
+        requestBody: requestBodyJson,
+        statusCode: 0,
+        responseBody: networkError.toString(),
+      );
+    }
+
+    if (response.statusCode != 201) {
+      throw VenueDebugException(
+        title: 'Failed to Create Venue',
+        url: url,
+        requestBody: requestBodyJson,
+        statusCode: response.statusCode,
+        responseBody: response.body,
+      );
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return decoded['id'] as String;
+  }
+
+  Future<void> updateVenueImages(String venueId, List<String> imageUrls) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+    final token = await user.getIdToken();
+
+    final url = '${AppConfig.apiUrl}/venues/$venueId';
+    final requestBodyJson = jsonEncode({'imageUrls': imageUrls});
+
+    final response = await http.patch(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: requestBodyJson,
+    );
+
+    if (response.statusCode != 200) {
+      throw VenueDebugException(
+        title: 'Failed to Update Images',
+        url: url,
+        requestBody: requestBodyJson,
+        statusCode: response.statusCode,
+        responseBody: response.body,
+      );
+    }
   }
 }
