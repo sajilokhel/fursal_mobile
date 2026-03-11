@@ -194,10 +194,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final now = DateTime.now();
     return bookings.where((b) {
       final startDateTime = _parseDateTime(b.date, b.startTime);
-      final isBooked = b.status == 'booked' || b.status == 'confirmed';
-      // Only show in upcoming if payment is NOT pending (otherwise it goes to Pending Payments)
-      final isPaymentDone = b.paymentStatus != 'pending';
-      return isBooked && isPaymentDone && startDateTime.isAfter(now);
+      final isConfirmed = b.status == 'booked' || b.status == 'confirmed';
+      // Upcoming: Confirmed AND starting in the future (payment status does not block)
+      return isConfirmed && startDateTime.isAfter(now);
     }).toList();
   }
 
@@ -205,8 +204,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final now = DateTime.now();
     return bookings.where((b) {
       final endDateTime = _parseDateTime(b.date, b.endTime);
-      final isBooked = b.status == 'booked' || b.status == 'confirmed';
-      return isBooked && endDateTime.isBefore(now);
+      final isConfirmed = b.status == 'booked' || b.status == 'confirmed';
+      // Completed: Confirmed AND time has passed
+      return isConfirmed && endDateTime.isBefore(now);
     }).toList();
   }
 
@@ -215,24 +215,18 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     return bookings.where((b) {
       final endDateTime = _parseDateTime(b.date, b.endTime);
 
-      // If time passed, it's not pending payment (it's expired or completed)
+      // If time passed, it's expired or missed, not pending payment
       if (endDateTime.isBefore(now)) return false;
 
+      // Specifically check for booking status being pending
       final isPendingStatus =
           b.status == 'pending' || b.status == 'pending_payment';
-      final isBookedStatus = b.status == 'booked' || b.status == 'confirmed';
-      final isPaymentPending = b.paymentStatus == 'pending';
-
+      
+      // Also check if slot hold is still valid
       final isHoldValid =
           b.holdExpiresAt == null || b.holdExpiresAt!.toDate().isAfter(now);
 
-      // Case 1: Status is pending (and hold is valid)
-      if (isPendingStatus && isHoldValid) return true;
-
-      // Case 2: Status is booked/confirmed BUT payment is still pending
-      if (isBookedStatus && isPaymentPending) return true;
-
-      return false;
+      return isPendingStatus && isHoldValid;
     }).toList();
   }
 

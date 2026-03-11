@@ -98,7 +98,7 @@ class Booking {
   // Computed property for UI compatibility
   String get paymentStatus =>
       paymentStatusField ??
-      (esewaStatus == 'COMPLETE' ? 'paid' : 'pending');
+      (esewaStatus?.toLowerCase() == 'complete' ? 'paid' : 'pending');
 
   /// True when no further payment is owed.
   bool get isFullyPaid {
@@ -109,7 +109,7 @@ class Booking {
     // eSewa COMPLETE only means fully paid when there is no offline balance
     // (i.e. esewaAmount covered the full booking amount).
     // For hybrid bookings esewaStatus is COMPLETE but a cash due remains.
-    if (esewaStatus == 'COMPLETE') {
+    if (esewaStatus?.toLowerCase() == 'complete') {
       final isPhysical = bookingType == 'physical' || bookingType == 'manual';
       final computedDue =
           isPhysical ? amount : amount - (esewaAmount ?? 0);
