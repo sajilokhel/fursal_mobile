@@ -75,11 +75,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     // Usually it's in AppConfig but let's see if we have it in checkout notifier first
     final productCode = ref.read(checkoutProvider).productCode ?? 'EPAYTEST';
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
+    setState(() => _verifyingPayments.add(booking.id));
 
     try {
       final result = await BookingService().verifyEsewaPayment(
@@ -89,15 +85,17 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       );
 
       if (mounted) {
-        Navigator.of(context).pop(); // Dismiss loading
         _showEsewaVerificationResult(result);
       }
     } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop(); // Dismiss loading
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Payment verification failed: $e')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _verifyingPayments.remove(booking.id));
       }
     }
   }
@@ -709,67 +707,83 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     ],
                   ),
                 ),
-                if (isPendingPayment)
-                  Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: _isInitiatingPayment
-                            ? null
-                            : () => _initiatePaymentAndNavigate(booking),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: statusColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: _isInitiatingPayment
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Pay Now',
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: () => _verifyPayment(booking),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.blueAccent,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          side: const BorderSide(color: Colors.blueAccent),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.refresh, size: 14),
-                            SizedBox(width: 4),
-                            Text('Verify', style: TextStyle(fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                else
+                if (!isPendingPayment)
                   Icon(Icons.arrow_forward_ios,
                       size: 14, color: Colors.grey.shade400),
               ],
             ),
+            if (isPendingPayment) ...[
+              const Divider(height: 1, indent: 72),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isInitiatingPayment
+                          ? null
+                          : () => _initiatePaymentAndNavigate(booking),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: statusColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: _isInitiatingPayment
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Pay Now',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: _verifyingPayments.contains(booking.id)
+                          ? null
+                          : () => _verifyPayment(booking),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blueAccent,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        side: const BorderSide(color: Colors.blueAccent),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (_verifyingPayments.contains(booking.id))
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.blueAccent),
+                            )
+                          else
+                            const Icon(Icons.refresh, size: 14),
+                          const SizedBox(width: 6),
+                          const Text('Verify', style: TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (isUpcoming || isCompleted) ...[
               const Divider(height: 1, indent: 72),
               Padding(
