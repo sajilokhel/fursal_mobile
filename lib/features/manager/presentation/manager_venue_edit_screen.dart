@@ -47,6 +47,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   LatLng? _selectedLocation;
   bool _isInitialized = false;
   bool _isUploading = false;
+  bool _isSaving = false;
   final ImagePicker _picker = ImagePicker();
   String _selectedSportType = 'futsal';
 
@@ -175,7 +176,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
           ],
         ),
         child: ElevatedButton(
-          onPressed: _saveVenue,
+          onPressed: _isSaving ? null : _saveVenue,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.black87,
             foregroundColor: Colors.white,
@@ -183,9 +184,19 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+            disabledBackgroundColor: Colors.black45,
           ),
-          child: const Text('Save Changes',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          child: _isSaving
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Save Changes',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       ),
     );
@@ -201,7 +212,9 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
     }
 
     final venuesState = ref.read(venuesProvider);
-    if (!venuesState.hasValue) return;
+    if (!venuesState.hasValue || _isSaving) return;
+
+    setState(() => _isSaving = true);
 
     try {
       final venue =
@@ -237,6 +250,10 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating venue: $e')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -439,6 +456,10 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
       final downloadUrl = await ref
           .read(venueRepositoryProvider)
           .uploadVenueImage(file, venue.id);
+
+      if (downloadUrl.isEmpty) {
+        throw Exception('Failed to get download URL for the uploaded image');
+      }
 
       // Create updated venue with new image URL
       final updatedVenue = Venue(

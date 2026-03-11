@@ -195,15 +195,20 @@ class VenueRepository {
     final token = await user.getIdToken();
     final baseUrl = AppConfig.apiUrl;
 
-    // Create multipart request
+    // Create multipart request for UploadThing backend
+    // The 'uploadthing' route expects specific fields when called directly.
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl/upload'),
+      Uri.parse('$baseUrl/uploadthing'),
     );
 
     request.headers['Authorization'] = 'Bearer $token';
+    
+    // UploadThing usually requires the file field to be named 'files' or 'file'
+    // and might require metadata or 'actionType' if not using their client.
+    // Given the "invalid input" error, we'll try standard keys.
     request.files.add(await http.MultipartFile.fromPath(
-      'file',
+      'files', // UploadThing often uses 'files' for multiple or single
       file.path,
       filename: 'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
     ));
@@ -213,7 +218,11 @@ class VenueRepository {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = jsonDecode(response.body);
-      return data['url'] as String;
+      // Handle various response shapes from UploadThing
+      if (data is List && data.isNotEmpty) {
+        return data[0]['url'] ?? '';
+      }
+      return data['url'] ?? data['fileUrl'] ?? '';
     } else {
       throw Exception('Failed to upload image: ${response.body}');
     }
