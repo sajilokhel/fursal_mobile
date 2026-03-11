@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
+import '../../../shared/widgets/app_sidebar.dart';
+import '../../../shared/providers/drawer_provider.dart';
+import '../../features/auth/data/auth_repository.dart';
 
-class ManagerScaffoldWithNavBar extends StatelessWidget {
+class ManagerScaffoldWithNavBar extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const ManagerScaffoldWithNavBar({
@@ -15,12 +19,20 @@ class ManagerScaffoldWithNavBar extends StatelessWidget {
   static const _branchAtVisual = [0, 1, 4, 2, 3];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final scaffoldKey = ref.watch(shellScaffoldKeyProvider);
     final currentBranch = navigationShell.currentIndex;
     final currentVisual = _branchAtVisual.indexOf(currentBranch);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
+      key: scaffoldKey,
+      drawer: AppSidebar(
+        displayName: authState.value?.displayName,
+        email: authState.value?.email,
+        photoURL: authState.value?.photoURL,
+      ),
       extendBody: false,
       // backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(

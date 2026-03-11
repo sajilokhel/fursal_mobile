@@ -6,7 +6,7 @@ import '../../venues/data/venue_repository.dart';
 import '../../bookings/data/booking_repository.dart';
 import '../data/manager_stats_provider.dart';
 import '../../../core/theme.dart';
-import '../../../shared/widgets/app_sidebar.dart';
+import '../../../shared/providers/drawer_provider.dart';
 import 'widgets/stat_card.dart';
 import 'widgets/quick_action_tile.dart';
 import 'widgets/status_helpers.dart';
@@ -21,10 +21,9 @@ class ManagerDashboardScreen extends ConsumerStatefulWidget {
 
 class _ManagerDashboardScreenState
     extends ConsumerState<ManagerDashboardScreen> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
-
   @override
   Widget build(BuildContext context) {
+    final scaffoldKey = ref.watch(shellScaffoldKeyProvider);
     final authState = ref.watch(authStateProvider);
     final userId = authState.value?.uid;
 
@@ -35,12 +34,6 @@ class _ManagerDashboardScreenState
     final venuesAsync = ref.watch(venuesProvider);
 
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: AppSidebar(
-        displayName: authState.value?.displayName,
-        email: authState.value?.email,
-        photoURL: authState.value?.photoURL,
-      ),
       body: venuesAsync.when(
         data: (bookings) {
           final myVenues =
@@ -72,8 +65,7 @@ class _ManagerDashboardScreenState
                     Row(
                       children: [
                         GestureDetector(
-                          onTap: () =>
-                              _scaffoldKey.currentState?.openDrawer(),
+                          onTap: () => scaffoldKey.currentState?.openDrawer(),
                           child: CircleAvatar(
                             radius: 20,
                             backgroundImage:

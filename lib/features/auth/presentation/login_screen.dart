@@ -83,6 +83,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Guard against the widget being disposed while the Google sign-in
     // dialog was open (e.g. user navigated away).
     if (!mounted) return;
+    
+    // If sign in was successful but we're still on the login page (router didn't flip yet),
+    // and we want to ensure the user isn't stuck if they just logged out.
+    // However, the AuthRepository fix (adding signOut() before signIn()) 
+    // is the primary fix for the account picker.
   }
   
   void _handleForgotPassword() async {
