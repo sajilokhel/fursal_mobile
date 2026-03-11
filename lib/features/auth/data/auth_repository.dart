@@ -9,6 +9,14 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../domain/auth_user.dart';
 import '../../../core/config.dart';
 
+/// Thrown when a user tries to sign in or register but hasn't verified their email.
+class EmailNotVerifiedException implements Exception {
+  final String email;
+  const EmailNotVerifiedException(this.email);
+  @override
+  String toString() => 'EmailNotVerifiedException: $email';
+}
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     FirebaseAuth.instance,
@@ -41,27 +49,36 @@ class AuthRepository {
     return _auth.authStateChanges().asyncMap((user) async {
       if (user == null) return null;
 
-      // Fetch user data from Firestore
+      // For email/password users who are not verified, treat them as logged-out
+      // but do NOT call signOut here — that would cause the stream to loop and
+      // would recreate the router, resetting navigation.
+      // signOut is handled explicitly in signInWithEmailAndPassword and
+      // createUserWithEmailAndPassword.
+      final isPasswordUser =
+          user.providerData.any((p) => p.providerId == 'password');
+      if (isPasswordUser && !user.emailVerified) {
+        return null;
+      }
+
+      // Fetch user profile from Firestore
       try {
         final doc = await _firestore.collection('users').doc(user.uid).get();
         if (doc.exists) {
-          return AuthUser.fromMap(doc.data()!, user.uid);
+          return AuthUser.fromMap({
+            ...doc.data()!,
+            'emailVerified': user.emailVerified,
+          }, user.uid);
         } else {
-          // If user exists in Auth but not Firestore (e.g. first google login), create it
-          // Or return a basic user and let the UI handle profile completion
-          // For now, we'll return a basic user with 'user' role
           return AuthUser(
             uid: user.uid,
             email: user.email ?? '',
             displayName: user.displayName,
             photoURL: user.photoURL,
             role: 'user',
+            emailVerified: user.emailVerified,
           );
         }
       } catch (e) {
-        // Do NOT silently fall back to role:'user' — a manager or admin would
-        // lose their permissions without any indication. Rethrow so the
-        // StreamProvider surfaces an error the UI can react to.
         rethrow;
       }
     });
@@ -74,21 +91,40 @@ class AuthRepository {
   }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
-    final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
-    
-    // Check if user exists in Firestore; if not, repair it.
-    // This happens if the user was created via the Firebase Console 
-    // or if the initial _saveUserToFirestore call failed.
-    if (credential.user != null) {
-      final doc = await _firestore
-          .collection('users')
-          .doc(credential.user!.uid)
-          .get();
-      if (!doc.exists) {
-        // Attempt to repair by syncing with backend/Firestore
-        await _saveUserToFirestore(credential.user!, credential.user!.displayName ?? '');
-      }
+    final credential = await _auth.signInWithEmailAndPassword(
+        email: email, password: password);
+    final user = credential.user!;
+
+    // Reload to get the freshest verification status from Firebase servers.
+    await user.reload();
+    final fresh = _auth.currentUser!;
+
+    if (!fresh.emailVerified) {
+      // Do NOT call signOut() here — that triggers a second auth state event
+      // which causes the router to navigate to /get-started.
+      // The authStateChanges stream already returns null for unverified users,
+      // so the app treats them as logged-out without needing explicit signOut.
+      fresh.sendEmailVerification().catchError((_) {});
+      throw EmailNotVerifiedException(email);
     }
+
+    // Repair missing Firestore profile in the background.
+    _repairProfileInBackground();
+  }
+
+  void _repairProfileInBackground() {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    _firestore.collection('users').doc(user.uid).get().then((doc) {
+      if (!doc.exists) {
+        _saveUserToFirestore(user, user.displayName ?? '')
+            .catchError((e) {
+          print('Warning: Background profile repair failed: $e');
+        });
+      }
+    }).catchError((Object e) {
+      print('Warning: Background profile check failed: $e');
+    });
   }
 
   Future<void> createUserWithEmailAndPassword(
@@ -97,17 +133,34 @@ class AuthRepository {
       email: email,
       password: password,
     );
+    final user = credential.user!;
 
-    if (credential.user != null) {
-      try {
-        await _saveUserToFirestore(credential.user!, name);
-      } catch (e) {
-        // Roll back: delete the Firebase Auth account so the user can retry
-        // without hitting "email already in use" on the next attempt.
-        await credential.user!.delete();
-        rethrow;
-      }
-    }
+    // Fire-and-forget: send verification email and sync profile.
+    user.sendEmailVerification().catchError(
+      (Object e) { print('Warning: Failed to send verification email: $e'); },
+    );
+    _saveUserToFirestore(user, name).catchError(
+      (Object e) { print('Warning: Failed to sync profile during registration: $e'); },
+    );
+
+    // Do NOT call signOut() here — it triggers a second auth state event which
+    // causes the router to navigate to /get-started mid-flow.
+    // The authStateChanges stream returns null for unverified users, so the
+    // app correctly treats them as logged-out without explicit signOut.
+
+    // Signal to the UI to show the verification screen.
+    throw EmailNotVerifiedException(email);
+  }
+
+  /// Temporarily signs in to resend the verification email, then signs out.
+  Future<void> resendVerificationEmail({
+    required String email,
+    required String password,
+  }) async {
+    final credential = await _auth.signInWithEmailAndPassword(
+        email: email, password: password);
+    await credential.user!.sendEmailVerification();
+    await _auth.signOut();
   }
 
   Future<void> signInWithGoogle() async {

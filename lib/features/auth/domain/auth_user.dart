@@ -4,6 +4,7 @@ class AuthUser {
   final String? displayName;
   final String? photoURL;
   final String role; // 'user', 'manager', 'admin'
+  final bool emailVerified;
 
   const AuthUser({
     required this.uid,
@@ -11,6 +12,7 @@ class AuthUser {
     this.displayName,
     this.photoURL,
     this.role = 'user',
+    this.emailVerified = false,
   });
 
   factory AuthUser.fromMap(Map<String, dynamic> map, String uid) {
@@ -20,6 +22,7 @@ class AuthUser {
       displayName: map['displayName'],
       photoURL: map['photoURL'],
       role: map['role'] ?? 'user',
+      emailVerified: map['emailVerified'] ?? false,
     );
   }
 
@@ -30,6 +33,7 @@ class AuthUser {
       'displayName': displayName,
       'photoURL': photoURL,
       'role': role,
+      'emailVerified': emailVerified,
     };
   }
   
@@ -39,6 +43,7 @@ class AuthUser {
     String? displayName,
     String? photoURL,
     String? role,
+    bool? emailVerified,
   }) {
     return AuthUser(
       uid: uid ?? this.uid,
@@ -46,6 +51,7 @@ class AuthUser {
       displayName: displayName ?? this.displayName,
       photoURL: photoURL ?? this.photoURL,
       role: role ?? this.role,
+      emailVerified: emailVerified ?? this.emailVerified,
     );
   }
 }

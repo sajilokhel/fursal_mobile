@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/data/auth_repository.dart';
+import '../features/auth/domain/auth_user.dart';
 import '../features/auth/presentation/get_started_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/splash_screen.dart';
@@ -47,12 +48,30 @@ final _shellNavigatorManagerVenuesKey =
 final _shellNavigatorManagerScanQRKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellManagerScanQR');
 
+// Notifies GoRouter to re-evaluate redirect ONLY when login state changes
+// (null→user or user→null), not on every intermediate loading/stream event.
+class _AuthNotifier extends ChangeNotifier {
+  bool? _wasLoggedIn;
+
+  _AuthNotifier(Ref ref) {
+    ref.listen<AsyncValue<AuthUser?>>(authStateProvider, (_, next) {
+      if (next.isLoading) return; // ignore loading states
+      final isLoggedIn = next.valueOrNull != null;
+      if (_wasLoggedIn == isLoggedIn) return; // no real change, skip
+      _wasLoggedIn = isLoggedIn;
+      notifyListeners();
+    });
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final notifier = _AuthNotifier(ref);
+  ref.onDispose(notifier.dispose);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
+    refreshListenable: notifier,
     routes: [
       GoRoute(
         path: '/',
@@ -245,34 +264,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final isLoading = authState.isLoading;
-      final hasError = authState.hasError;
-      final isLoggedIn = authState.valueOrNull != null;
+      // Use ref.read (never ref.watch) inside redirect — the refreshListenable
+      // above already triggers re-evaluation when auth changes.
+      final authState = ref.read(authStateProvider);
+      final user = authState.valueOrNull;
+      final isLoggedIn = user != null;
       final isSplash = state.uri.toString() == '/';
       final isGetStarted = state.uri.toString() == '/get-started';
       final isLoggingIn = state.uri.toString() == '/login';
 
-      if (isLoading || hasError) return null;
+      if (authState.isLoading || authState.hasError) return null;
 
       if (isLoggedIn) {
-        // If logged in and trying to access auth pages or splash, redirect to home
+        // Verified + logged in. Redirect away from auth pages.
         if (isSplash || isGetStarted || isLoggingIn) {
-          final role = authState.value?.role;
-          if (role == 'manager') {
-            return '/manager/dashboard';
-          }
-          return '/home';
+          return user.role == 'manager' ? '/manager/dashboard' : '/home';
         }
       } else {
-        // If not logged in
-        if (isSplash) {
-          return '/get-started';
-        }
-
-        // If trying to access protected pages, redirect to get started
-        if (!isGetStarted && !isLoggingIn) {
-          return '/get-started';
-        }
+        if (isSplash) return '/get-started';
+        if (!isGetStarted && !isLoggingIn) return '/get-started';
       }
 
       return null;

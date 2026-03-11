@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme.dart';
+import '../../features/auth/data/auth_repository.dart';
 
-class AppSidebar extends StatelessWidget {
+class AppSidebar extends ConsumerWidget {
   final String? displayName;
   final String? email;
   final String? photoURL;
@@ -16,7 +18,7 @@ class AppSidebar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final initials = (displayName?.isNotEmpty == true ? displayName! : 'U')
         .substring(0, 1)
         .toUpperCase();
@@ -171,7 +173,7 @@ class AppSidebar extends StatelessWidget {
             color: Colors.red,
             onTap: () {
               Navigator.of(context).pop();
-              FirebaseAuth.instance.signOut();
+              ref.read(authRepositoryProvider).signOut();
             },
           ),
           const SizedBox(height: 16),
