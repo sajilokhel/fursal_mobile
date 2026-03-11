@@ -325,146 +325,149 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   // ─── LOCATION ──────────────────────────────────────────────────────────────
 
   Widget _buildLocationTab() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _label('Search Location'),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: _inputDeco('e.g., Downtown Sports Arena'),
-                      onSubmitted: (v) => _searchLocation(v),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _label('Search Location'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: _inputDeco('e.g., Downtown Sports Arena'),
+                        onSubmitted: (v) => _searchLocation(v),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: _isSearching
+                          ? null
+                          : () => _searchLocation(_searchController.text),
+                      icon: _isSearching
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.search),
+                      style: IconButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor),
+                    ),
+                  ],
+                ),
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                        )
+                      ],
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final result = _searchResults[index];
+                        return ListTile(
+                          dense: true,
+                          title: Text(result['display_name'] ?? '',
+                              style: const TextStyle(fontSize: 13),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
+                          subtitle: Text(result['type'] ?? '',
+                              style: const TextStyle(fontSize: 11)),
+                          onTap: () => _handleSelectResult(result),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _isSearching
-                        ? null
-                        : () => _searchLocation(_searchController.text),
-                    icon: _isSearching
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.search),
-                    style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor),
+                const SizedBox(height: 12),
+                _label('Address (Auto-filled)'),
+                TextField(
+                  controller: _addressController,
+                  decoration: _inputDeco('Address will be set from search...'),
+                ),
+                if (_selectedLocation != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Selected: ${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
+                    style: const TextStyle(
+                        color: Colors.green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 400,
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter:
+                          _selectedLocation ?? const LatLng(27.7172, 85.3240),
+                      initialZoom: 13.0,
+                      onTap: (_, latlng) =>
+                          setState(() => _selectedLocation = latlng),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.fursal_mobile',
+                      ),
+                      if (_selectedLocation != null)
+                        MarkerLayer(markers: [
+                          Marker(
+                            point: _selectedLocation!,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.location_on,
+                                color: Colors.red, size: 40),
+                          ),
+                        ]),
+                    ],
+                  ),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: FloatingActionButton(
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      child: const Icon(Icons.my_location, color: Colors.black),
+                      onPressed: () {},
+                    ),
                   ),
                 ],
               ),
-              if (_searchResults.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                      )
-                    ],
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: _searchResults.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final result = _searchResults[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(result['display_name'] ?? '',
-                            style: const TextStyle(fontSize: 13),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                        subtitle: Text(result['type'] ?? '',
-                            style: const TextStyle(fontSize: 11)),
-                        onTap: () => _handleSelectResult(result),
-                      );
-                    },
-                  ),
-                ),
-              const SizedBox(height: 12),
-              _label('Address (Auto-filled)'),
-              TextField(
-                controller: _addressController,
-                decoration: _inputDeco('Address will be set from search...'),
-              ),
-              if (_selectedLocation != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Selected: ${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
-                  style: const TextStyle(
-                      color: Colors.green,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
-            ],
-          ),
-        ),
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter:
-                        _selectedLocation ?? const LatLng(27.7172, 85.3240),
-                    initialZoom: 13.0,
-                    onTap: (_, latlng) =>
-                        setState(() => _selectedLocation = latlng),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.fursal_mobile',
-                    ),
-                    if (_selectedLocation != null)
-                      MarkerLayer(markers: [
-                        Marker(
-                          point: _selectedLocation!,
-                          width: 40,
-                          height: 40,
-                          child: const Icon(Icons.location_on,
-                              color: Colors.red, size: 40),
-                        ),
-                      ]),
-                  ],
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Colors.white,
-                    child: const Icon(Icons.my_location, color: Colors.black),
-                    onPressed: () {},
-                  ),
-                ),
-              ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
