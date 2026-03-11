@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../../core/theme.dart';
 import '../../../core/sport_types.dart';
 import '../../venues/data/venue_repository.dart';
@@ -20,6 +22,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
+  final MapController _mapController = MapController();
 
   // Basic Info
   final _nameController = TextEditingController();
@@ -29,7 +32,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
 
   // Location
   final _addressController = TextEditingController();
+  final _searchController = TextEditingController();
   LatLng? _selectedLocation;
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
 
   // Slot Config
   TimeOfDay _openingTime = const TimeOfDay(hour: 6, minute: 0);
@@ -63,8 +69,52 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     _descriptionController.dispose();
     _priceController.dispose();
     _addressController.dispose();
+    _searchController.dispose();
     _slotDurationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchLocation(String query) async {
+    if (query.trim().isEmpty) return;
+
+    setState(() {
+      _isSearching = true;
+      _searchResults = [];
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://nominatim.openstreetmap.org/search?format=json&q=$query&limit=10'),
+        headers: {'User-Agent': 'Fursal/1.0'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _searchResults = data;
+        });
+      }
+    } catch (e) {
+      debugPrint('Search error: $e');
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  void _handleSelectResult(dynamic result) {
+    final lat = double.parse(result['lat']);
+    final lon = double.parse(result['lon']);
+    final newLocation = LatLng(lat, lon);
+
+    setState(() {
+      _selectedLocation = newLocation;
+      _addressController.text = result['display_name'] ?? '';
+      _searchResults = [];
+      _searchController.clear();
+    });
+
+    _mapController.move(newLocation, 15.0);
   }
 
   @override
@@ -282,19 +332,76 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _label('Address (Optional)'),
+              _label('Search Location'),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: _inputDeco('e.g., Downtown Sports Arena'),
+                      onSubmitted: (v) => _searchLocation(v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _isSearching
+                        ? null
+                        : () => _searchLocation(_searchController.text),
+                    icon: _isSearching
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.search),
+                    style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor),
+                  ),
+                ],
+              ),
+              if (_searchResults.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                      )
+                    ],
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _searchResults.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final result = _searchResults[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(result['display_name'] ?? '',
+                            style: const TextStyle(fontSize: 13),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                        subtitle: Text(result['type'] ?? '',
+                            style: const TextStyle(fontSize: 11)),
+                        onTap: () => _handleSelectResult(result),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 12),
+              _label('Address (Auto-filled)'),
               TextField(
                 controller: _addressController,
-                decoration: _inputDeco('e.g., Kumaripati, Lalitpur'),
-              ),
-              const SizedBox(height: 12),
-              _label('Map Location'),
-              const Text(
-                'Tap on the map to set your venue location.',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                decoration: _inputDeco('Address will be set from search...'),
               ),
               if (_selectedLocation != null) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 Text(
                   'Selected: ${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
                   style: const TextStyle(
@@ -317,6 +424,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
             child: Stack(
               children: [
                 FlutterMap(
+                  mapController: _mapController,
                   options: MapOptions(
                     initialCenter:
                         _selectedLocation ?? const LatLng(27.7172, 85.3240),

@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../../core/theme.dart';
 import '../../../core/sport_types.dart';
 import '../../venues/data/venue_repository.dart';
@@ -42,6 +44,10 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
   bool _isSaving = false;
   final ImagePicker _picker = ImagePicker();
   String _selectedSportType = 'futsal';
+  final MapController _mapController = MapController();
+  final _searchController = TextEditingController();
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -62,7 +68,51 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
     _descriptionController.dispose();
     _priceController.dispose();
     _addressController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchLocation(String query) async {
+    if (query.trim().isEmpty) return;
+
+    setState(() {
+      _isSearching = true;
+      _searchResults = [];
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://nominatim.openstreetmap.org/search?format=json&q=$query&limit=10'),
+        headers: {'User-Agent': 'Fursal/1.0'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _searchResults = data;
+        });
+      }
+    } catch (e) {
+      debugPrint('Search error: $e');
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  void _handleSelectResult(dynamic result) {
+    final lat = double.parse(result['lat']);
+    final lon = double.parse(result['lon']);
+    final newLocation = LatLng(lat, lon);
+
+    setState(() {
+      _selectedLocation = newLocation;
+      _addressController.text = result['display_name'] ?? '';
+      _searchResults = [];
+      _searchController.clear();
+    });
+
+    _mapController.move(newLocation, 15.0);
   }
 
   @override
@@ -560,10 +610,86 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text(
+                'Search Location',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'e.g., Downtown Sports Arena',
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      onSubmitted: (v) => _searchLocation(v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _isSearching
+                        ? null
+                        : () => _searchLocation(_searchController.text),
+                    icon: _isSearching
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.search),
+                    style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor),
+                  ),
+                ],
+              ),
+              if (_searchResults.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                      )
+                    ],
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _searchResults.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final result = _searchResults[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(result['display_name'] ?? '',
+                            style: const TextStyle(fontSize: 13),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                        subtitle: Text(result['type'] ?? '',
+                            style: const TextStyle(fontSize: 11)),
+                        onTap: () => _handleSelectResult(result),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 16),
               _buildTextField(
                 controller: _addressController,
-                label: 'Address (Optional)',
-                hint: 'e.g., Kumaripati, Lalitpur',
+                label: 'Address (Auto-filled)',
+                hint: 'Address will be set from search...',
               ),
               const SizedBox(height: 16),
               const Text(
@@ -575,6 +701,16 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
                 'Tap on the map to update location',
                 style: TextStyle(color: Colors.grey, fontSize: 13),
               ),
+              if (_selectedLocation != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Selected: ${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
+                  style: const TextStyle(
+                      color: Colors.green,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold),
+                ),
+              ],
             ],
           ),
         ),
@@ -589,6 +725,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
             child: Stack(
               children: [
                 FlutterMap(
+                  mapController: _mapController,
                   options: MapOptions(
                     initialCenter: _selectedLocation ??
                         const LatLng(27.7172, 85.3240), // Default to Kathmandu
