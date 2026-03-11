@@ -25,6 +25,7 @@ class ManagerVenueSlotsScreen extends ConsumerStatefulWidget {
 class _ManagerVenueSlotsScreenState
     extends ConsumerState<ManagerVenueSlotsScreen> {
   late DateTime _selectedWeekStart;
+  bool _isLoading = false;
   static const double _slotWidth = 80.0;
   static const double _timeColumnWidth = 50.0;
 
@@ -73,19 +74,28 @@ class _ManagerVenueSlotsScreenState
           onPressed: () => context.pop(),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          _buildSlotLegend(),
-          _buildWeekHeader(),
-          Expanded(
-            child: venueSlotsAsync.when(
-              data: (venueSlots) => venueSlots != null
-                  ? _buildSlotGrid(venueSlots)
-                  : const Center(child: Text('No slot data available')),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Error: $err')),
-            ),
+          Column(
+            children: [
+              _buildSlotLegend(),
+              _buildWeekHeader(),
+              Expanded(
+                child: venueSlotsAsync.when(
+                  data: (venueSlots) => venueSlots != null
+                      ? _buildSlotGrid(venueSlots)
+                      : const Center(child: Text('No slot data available')),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Center(child: Text('Error: $err')),
+                ),
+              ),
+            ],
           ),
+          if (_isLoading)
+            Container(
+              color: Colors.black26,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
@@ -593,9 +603,10 @@ class _ManagerVenueSlotsScreenState
   }
 
   Future<void> _blockSlot(String date, String time, {String? reason}) async {
+    setState(() => _isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) { setState(() => _isLoading = false); return; }
       final token = await user.getIdToken();
 
       final response = await http.post(
@@ -615,6 +626,7 @@ class _ManagerVenueSlotsScreenState
       if (response.statusCode == 200) {
         ref.invalidate(venueSlotsProvider(widget.venueId));
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Slot $date $time blocked')),
           );
@@ -623,12 +635,14 @@ class _ManagerVenueSlotsScreenState
         final error =
             jsonDecode(response.body)['error'] ?? 'Failed to block slot';
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text('Error: $error')));
         }
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
@@ -636,9 +650,10 @@ class _ManagerVenueSlotsScreenState
   }
 
   Future<void> _unblockSlot(String date, String time) async {
+    setState(() => _isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) { setState(() => _isLoading = false); return; }
       final token = await user.getIdToken();
 
       final response = await http.post(
@@ -657,6 +672,7 @@ class _ManagerVenueSlotsScreenState
       if (response.statusCode == 200) {
         ref.invalidate(venueSlotsProvider(widget.venueId));
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Slot $date $time unblocked')),
           );
@@ -665,12 +681,14 @@ class _ManagerVenueSlotsScreenState
         final error =
             jsonDecode(response.body)['error'] ?? 'Failed to unblock slot';
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text('Error: $error')));
         }
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
@@ -765,9 +783,10 @@ class _ManagerVenueSlotsScreenState
     String notes, {
     required VenueConfig config,
   }) async {
+    setState(() => _isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) { setState(() => _isLoading = false); return; }
       final token = await user.getIdToken();
 
       // Calculate endTime from slot duration
@@ -798,6 +817,7 @@ class _ManagerVenueSlotsScreenState
       if (response.statusCode == 200 || response.statusCode == 201) {
         ref.invalidate(venueSlotsProvider(widget.venueId));
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text('Physical booking created for $customerName')),
@@ -807,12 +827,14 @@ class _ManagerVenueSlotsScreenState
         final error =
             jsonDecode(response.body)['error'] ?? 'Failed to create booking';
         if (mounted) {
+          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text('Error: $error')));
         }
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
