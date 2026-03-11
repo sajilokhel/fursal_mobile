@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../data/booking_repository.dart';
 import '../data/checkout_state.dart';
 import '../domain/booking.dart';
 import '../../venues/data/venue_repository.dart';
+import '../../../services/booking_service.dart';
 import '../../../services/payment_service.dart';
 import 'payment_screen.dart';
 import 'booking_detail_screen.dart';
@@ -19,6 +25,8 @@ class BookingScreen extends ConsumerStatefulWidget {
 
 class _BookingScreenState extends ConsumerState<BookingScreen> {
   bool _isInitiatingPayment = false;
+  final Set<String> _loadingInvoices = {};
+  final Set<String> _verifyingPayments = {};
   final Map<String, int> _visibleItemsCount = {
     'Upcoming Bookings': 3,
     'Pending Payments': 3,
@@ -30,6 +38,210 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     setState(() {
       _visibleItemsCount[section] = (_visibleItemsCount[section] ?? 3) + 10;
     });
+  }
+
+  Future<void> _downloadAndOpenInvoice(String bookingId) async {
+    setState(() => _loadingInvoices.add(bookingId));
+    try {
+      final bytes = await BookingService().downloadInvoice(bookingId);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/invoice-$bookingId.pdf');
+      await file.writeAsBytes(bytes);
+      
+      if (mounted) {
+        await OpenFilex.open(file.path);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download invoice: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingInvoices.remove(bookingId));
+    }
+  }
+
+  Future<void> _verifyPayment(Booking booking) async {
+    final uuid = booking.esewaTransactionUuid;
+    if (uuid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No transaction UUID found to verify.')),
+      );
+      return;
+    }
+
+    // Try to get product code from checkout state or booking field
+    // Usually it's in AppConfig but let's see if we have it in checkout notifier first
+    final productCode = ref.read(checkoutProvider).productCode ?? 'EPAYTEST';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final result = await BookingService().verifyEsewaPayment(
+        transactionUuid: uuid,
+        productCode: productCode,
+        totalAmount: booking.amount,
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading
+        _showEsewaVerificationResult(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Payment verification failed: $e')),
+        );
+      }
+    }
+  }
+
+  void _showEsewaVerificationResult(Map<String, dynamic> result) {
+    final verified = result['verified'] == true;
+    final status = result['status'] ?? 'UNKNOWN';
+    final bookingConfirmed = result['bookingConfirmed'] == true;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              verified ? Icons.check_circle : Icons.error_outline,
+              color: verified ? Colors.green : Colors.orange,
+            ),
+            const SizedBox(width: 8),
+            const Text('Payment Status'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('eSewa Status: $status'),
+            const SizedBox(height: 8),
+            if (verified && bookingConfirmed)
+              const Text('✅ Your booking has been confirmed!',
+                  style: TextStyle(fontWeight: FontWeight.bold))
+            else if (verified && !bookingConfirmed)
+              const Text('⚠️ Payment received but booking update pending.',
+                  style: TextStyle(color: Colors.orange))
+            else
+              Text('Message: ${result['message'] ?? 'Payment not completed or found.'}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('Verify QR')),
+          body: MobileScanner(
+            onDetect: (capture) async {
+              final List<Barcode> barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                final code = barcode.rawValue;
+                if (code != null) {
+                  Navigator.of(context).pop(); // Close scanner
+                  _verifyQr(code);
+                  break;
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _verifyQr(String qr) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final result = await BookingService().verifyInvoiceQr(qr);
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading
+        _showVerificationResult(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification failed: $e')),
+        );
+      }
+    }
+  }
+
+  void _showVerificationResult(Map<String, dynamic> result) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final booking = result['booking'] ?? {};
+        final venue = result['venue'] ?? {};
+        final status = booking['status'] ?? 'N/A';
+        final isStale = result['stale'] == true;
+
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                result['ok'] == true ? Icons.check_circle : Icons.error,
+                color: result['ok'] == true ? Colors.green : Colors.red,
+              ),
+              const SizedBox(width: 8),
+              const Text('Verification Result'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isStale)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '⚠️ WARNING: STALE QR CODE',
+                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              Text('Venue: ${venue['name'] ?? 'N/A'}'),
+              Text('Booking ID: ${booking['id'] ?? 'N/A'}'),
+              Text('Status: ${status.toString().toUpperCase()}'),
+              Text('Date: ${booking['date'] ?? 'N/A'}'),
+              Text('Time: ${booking['startTime'] ?? 'N/A'}'),
+              const SizedBox(height: 8),
+              Text('User: ${result['user']?.toString() ?? 'N/A'}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _initiatePaymentAndNavigate(Booking booking) async {
@@ -363,7 +575,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     if (isUpcoming) {
       statusText = 'Confirmed';
-      statusColor = theme.primaryColor;
+      statusColor = Colors.green;
       statusIcon = Icons.check_circle_outline;
     } else if (isPendingPayment) {
       statusText = 'Pending Payment';
@@ -371,8 +583,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       statusIcon = Icons.access_time;
     } else if (isCompleted) {
       statusText = 'Completed';
-      statusColor = Colors.green;
-      statusIcon = Icons.verified;
+      statusColor = Colors.blue;
+      statusIcon = Icons.done;
     } else if (isCancelled) {
       statusText = booking.status == 'cancelled' ? 'Cancelled' : 'Expired';
       statusColor = Colors.red.shade400;
@@ -396,138 +608,204 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey.shade100)),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(statusIcon, color: statusColor, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (booking.venueName.startsWith('Venue #'))
-                    ref.watch(venueProvider(booking.venueId)).when(
-                          data: (venue) => Text(
-                            venue?.name ?? booking.venueName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          loading: () => Text(
-                            booking.venueName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          error: (_, __) => Text(
-                            booking.venueName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )
-                  else
-                    Text(
-                      booking.venueName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 4),
-                  Row(
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(statusIcon, color: statusColor, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.calendar_today,
-                          size: 14, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${booking.date} • ${booking.startTime}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                      if (booking.venueName.startsWith('Venue #'))
+                        ref.watch(venueProvider(booking.venueId)).when(
+                              data: (venue) => Text(
+                                venue?.name ?? booking.venueName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              loading: () => Text(
+                                booking.venueName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              error: (_, __) => Text(
+                                booking.venueName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            )
+                      else
+                        Text(
+                          booking.venueName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${booking.date} • ${booking.startTime}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (isPendingPayment)
-              ElevatedButton(
-                onPressed: _isInitiatingPayment
-                    ? null
-                    : () => _initiatePaymentAndNavigate(booking),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: statusColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: _isInitiatingPayment
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                if (isPendingPayment)
+                  Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _isInitiatingPayment
+                            ? null
+                            : () => _initiatePaymentAndNavigate(booking),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: statusColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                      )
-                    : const Text('Pay Now',
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold)),
-              )
-            else
-              Icon(Icons.arrow_forward_ios,
-                  size: 14, color: Colors.grey.shade400),
+                        child: _isInitiatingPayment
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Pay Now',
+                                style: TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () => _verifyPayment(booking),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blueAccent,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          side: const BorderSide(color: Colors.blueAccent),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.refresh, size: 14),
+                            SizedBox(width: 4),
+                            Text('Verify', style: TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Icon(Icons.arrow_forward_ios,
+                      size: 14, color: Colors.grey.shade400),
+              ],
+            ),
+            if (isUpcoming || isCompleted) ...[
+              const Divider(height: 1, indent: 72),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _loadingInvoices.contains(booking.id)
+                          ? null
+                          : () => _downloadAndOpenInvoice(booking.id),
+                      icon: _loadingInvoices.contains(booking.id)
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.blue))
+                          : const Icon(Icons.download, size: 14),
+                      label: const Text('Download Invoice',
+                          style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: Colors.blue.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ]
           ],
         ),
       ),

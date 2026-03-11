@@ -197,6 +197,102 @@ class BookingService {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  /// Verify eSewa payment for a booking
+  Future<Map<String, dynamic>> verifyEsewaPayment({
+    required String transactionUuid,
+    required String productCode,
+    required double totalAmount,
+  }) async {
+    final uri = Uri.parse('${AppConfig.backendBaseUrl}/api/payment/verify');
+    final body = jsonEncode({
+      'transactionUuid': transactionUuid,
+      'productCode': productCode,
+      'totalAmount': totalAmount,
+    });
+
+    await LoggerService().info('verifyEsewaPayment: request', meta: {
+      'uri': uri.toString(),
+      'body': body,
+    });
+
+    // This endpoint doesn't require a Bearer token according to docs
+    final resp = await _postWithRedirects(uri,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body);
+
+    await LoggerService().info('verifyEsewaPayment: response', meta: {
+      'status': resp.statusCode,
+      'body': resp.body,
+    });
+
+    if (resp.statusCode != 200) {
+      throw Exception('Payment verification failed: ${resp.body}');
+    }
+
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  /// Download invoice for a booking ID. Returns the raw bytes of the PDF.
+  Future<List<int>> downloadInvoice(String bookingId) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    final idToken = await user.getIdToken();
+    final uri = Uri.parse('${AppConfig.backendBaseUrl}/api/invoices/$bookingId');
+
+    await LoggerService().info('downloadInvoice: request', meta: {
+      'uri': uri.toString(),
+      'bookingId': bookingId,
+    });
+
+    final resp = await http.get(uri, headers: {
+      'Authorization': 'Bearer $idToken',
+    });
+
+    if (resp.statusCode != 200) {
+      await LoggerService().error('downloadInvoice failed', meta: {
+        'status': resp.statusCode,
+        'body': resp.body,
+      });
+      throw Exception('Failed to download invoice: ${resp.statusCode}');
+    }
+
+    return resp.bodyBytes;
+  }
+
+  /// Verify a QR code payload (base64 string) via the backend.
+  Future<Map<String, dynamic>> verifyInvoiceQr(String qr) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    final idToken = await user.getIdToken();
+    final uri = Uri.parse('${AppConfig.backendBaseUrl}/api/invoices/verify');
+    final body = jsonEncode({'qr': qr});
+
+    await LoggerService().info('verifyInvoiceQr: request', meta: {
+      'uri': uri.toString(),
+    });
+
+    final resp = await _postWithRedirects(uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: body);
+
+    if (resp.statusCode != 200) {
+      await LoggerService().error('verifyInvoiceQr failed', meta: {
+        'status': resp.statusCode,
+        'body': resp.body,
+      });
+      throw Exception('Failed to verify invoice: ${resp.body}');
+    }
+
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   /// Helper to POST while following redirect locations up to [maxRedirects].
   Future<http.Response> _postWithRedirects(Uri uri,
       {required Map<String, String> headers,
