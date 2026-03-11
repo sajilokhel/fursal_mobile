@@ -242,11 +242,12 @@ class VenueListCard extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
           color: AppTheme.textSecondary,
+          height: 1.0,
         ),
       ),
     );
   }
-}
+  }

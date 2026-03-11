@@ -27,10 +27,10 @@ class HomeSportChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(right: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryColor : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(25),
           border: Border.all(
             color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200,
             width: 1.5,
@@ -43,23 +43,30 @@ class HomeSportChip extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(sport.emoji, style: const TextStyle(fontSize: 22)),
-            const SizedBox(height: 4),
+            Text(
+              sport.emoji,
+              style: const TextStyle(
+                fontSize: 18,
+                height: 1.0,
+              ),
+            ),
+            const SizedBox(width: 8),
             Text(
               sport.name,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: isSelected ? Colors.white : AppTheme.textPrimary,
               ),
             ),
           ],
         ),
-      ),
-    );
+        ),
+      );
   }
 }

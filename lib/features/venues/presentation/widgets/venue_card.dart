@@ -20,7 +20,7 @@ class VenueCard extends StatelessWidget {
     return GestureDetector(
       onTap: onSeeDetails,
       child: Container(
-        height: 180, // Increased height to fit buttons
+        height: 200,
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -132,15 +132,21 @@ class VenueCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Icon(Icons.sports_outlined,
                           size: 14, color: Colors.grey.shade400),
                       const SizedBox(width: 4),
-                      Text(
-                        '${sportEmoji(venue.sportType)} ${sportDisplayName(venue.sportType)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                      Expanded(
+                        child: Text(
+                          '${sportEmoji(venue.sportType)} ${sportDisplayName(venue.sportType)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.0,
+                            color: Colors.grey.shade600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -164,6 +170,9 @@ class VenueCard extends StatelessWidget {
                         child: _OverlayButton(
                           text: 'Book Now',
                           onTap: onSeeDetails,
+                          icon: Icons.arrow_forward,
+                          backgroundColor: AppTheme.primaryColor,
+                        
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -191,21 +200,26 @@ class _OverlayButton extends StatelessWidget {
   final String text;
   final IconData? icon;
   final VoidCallback onTap;
+  final Color? backgroundColor; 
 
   const _OverlayButton({
     required this.text,
     this.icon,
     required this.onTap,
+    this.backgroundColor, 
   });
 
   @override
   Widget build(BuildContext context) {
+    final Color finalBgColor = backgroundColor ?? 
+        (icon != null ? const Color(0xFF1F1F1F) : Colors.white);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: icon != null ? const Color(0xFF1F1F1F) : Colors.white,
+          color: finalBgColor, // 4. Use the calculated color here
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
@@ -218,7 +232,7 @@ class _OverlayButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 12, color: AppTheme.primaryColor),
+              Icon(icon, size: 12, color: Colors.white,), // Example: Adjusted for visibility
               const SizedBox(width: 4),
             ],
             Text(
@@ -226,7 +240,8 @@ class _OverlayButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: icon != null ? Colors.white : Colors.black,
+                // Ensure text remains readable against the background
+                color: finalBgColor == Colors.white ? Colors.black : Colors.white,
               ),
             ),
           ],

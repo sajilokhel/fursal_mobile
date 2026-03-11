@@ -139,7 +139,10 @@ class _PromoBannerCardState extends State<PromoBannerCard>
                       opacity: _fadeAnim,
                       child: Text(
                         emoji,
-                        style: const TextStyle(fontSize: 64),
+                        style: const TextStyle(
+                          fontSize: 64,
+                          height: 1.0,
+                        ),
                       ),
                     ),
                   ),

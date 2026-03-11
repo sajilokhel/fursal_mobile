@@ -167,8 +167,13 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text(sport.emoji,
-                              style: const TextStyle(fontSize: 16)),
+                          Text(
+                            sport.emoji,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              height: 1.0,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             sport.name,
@@ -522,7 +527,10 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
                     children: kAllSports.map((sport) {
                       final isSelected = tempFilterSport == sport.id;
                       return FilterChip(
-                        label: Text('${sport.emoji} ${sport.name}'),
+                        label: Text(
+                          '${sport.emoji} ${sport.name}',
+                          style: const TextStyle(height: 1.0),
+                        ),
                         selected: isSelected,
                         selectedColor:
                             AppTheme.primaryColor.withOpacity(0.15),
@@ -561,7 +569,7 @@ class _VenueListScreenState extends ConsumerState<VenueListScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  const Text('Amenities',
+                  const Text('Benefits',
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   const SizedBox(height: 8),
