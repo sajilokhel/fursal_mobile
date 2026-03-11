@@ -20,22 +20,10 @@ class ManagerScaffoldWithNavBar extends StatelessWidget {
     final currentVisual = _branchAtVisual.indexOf(currentBranch);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Inject extra bottom padding so all child scroll views clear the floating bar
-    final navBarClearance = bottomPadding + 80.0;
-    final injectedMq = MediaQuery.of(context).copyWith(
-      padding: MediaQuery.of(context).padding.copyWith(
-        bottom: navBarClearance,
-      ),
-    );
-
     return Scaffold(
-      extendBody: true,
-      body: MediaQuery(
-        data: injectedMq,
-        child: SafeArea(
-          bottom: false,
-          child: navigationShell,
-        ),
+      extendBody: false,
+      body: SafeArea(
+        child: navigationShell,
       ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding + 12),

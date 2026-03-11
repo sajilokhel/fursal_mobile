@@ -87,6 +87,8 @@ class AuthRepository {
   }
 
   Future<void> signInWithGoogle() async {
+    // Ensure any cached account is cleared so the account picker is always shown.
+    await _googleSignIn.signOut();
     final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
     if (googleUser == null) return; // User canceled
 

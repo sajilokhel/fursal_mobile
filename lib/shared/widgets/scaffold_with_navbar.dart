@@ -24,21 +24,10 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentIndex = navigationShell.currentIndex;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final navBarClearance = bottomPadding + 80.0;
-    final injectedMq = MediaQuery.of(context).copyWith(
-      padding: MediaQuery.of(context).padding.copyWith(
-        bottom: navBarClearance,
-      ),
-    );
-
     return Scaffold(
-      extendBody: true,
-      body: MediaQuery(
-        data: injectedMq,
-        child: SafeArea(
-          bottom: false,
-          child: navigationShell,
-        ),
+      extendBody: false,
+      body: SafeArea(
+        child: navigationShell,
       ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding + 12),
