@@ -151,10 +151,13 @@ class Booking {
   }
 
   factory Booking.fromMap(Map<String, dynamic> map) {
+    // If venueName is missing, we use a placeholder or derive from ID
+    final venueName = map['venueName'] ?? 'Venue #${(map['venueId'] ?? "").toString().split("_").last}';
+    
     return Booking(
       id: map['id'] ?? '',
       venueId: map['venueId'] ?? '',
-      venueName: map['venueName'] ?? '',
+      venueName: venueName,
       userId: map['userId'] ?? '',
       userName: map['userName'],
       userPhone: map['userPhone'],

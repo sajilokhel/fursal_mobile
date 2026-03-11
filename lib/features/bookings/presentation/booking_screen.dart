@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../data/booking_repository.dart';
 import '../data/checkout_state.dart';
 import '../domain/booking.dart';
@@ -17,6 +18,18 @@ class BookingScreen extends ConsumerStatefulWidget {
 
 class _BookingScreenState extends ConsumerState<BookingScreen> {
   bool _isInitiatingPayment = false;
+  final Map<String, int> _visibleItemsCount = {
+    'Upcoming Bookings': 3,
+    'Pending Payments': 3,
+    'Completed': 3,
+    'Cancelled & Expired': 3,
+  };
+
+  void _showMore(String section) {
+    setState(() {
+      _visibleItemsCount[section] = (_visibleItemsCount[section] ?? 3) + 10;
+    });
+  }
 
   Future<void> _initiatePaymentAndNavigate(Booking booking) async {
     setState(() => _isInitiatingPayment = true);
@@ -75,13 +88,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    // Check for expired bookings when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        ref.read(bookingRepositoryProvider).checkAndExpireBookings(user.uid);
-      }
-    });
+    // Booking expiration is now handled by the backend
+    // No need to check/expire bookings from the client since Firestore rules
+    // deny direct writes to the bookings collection
   }
 
   @override
@@ -95,40 +104,83 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final bookingsAsync = ref.watch(userBookingsProvider(user.uid));
 
     return Scaffold(
-      // appBar: AppBar(title: const Text('My Bookings')),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text('My Bookings',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        centerTitle: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: Colors.black,
+      ),
       body: bookingsAsync.when(
         data: (bookings) {
           if (bookings.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.calendar_today_outlined,
+                      size: 64,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'No Bookings Yet',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Text(
-                    'You have not booked yet',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                    'Your sports schedules will appear here.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: () => context.go('/home'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Find a Venue',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
             );
           }
-          return SingleChildScrollView(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildBookingSection(context, 'Upcoming Bookings',
-                    _getUpcomingBookings(bookings)),
-                _buildBookingSection(context, 'Pending Payments',
-                    _getPaymentPendingBookings(bookings)),
-                _buildBookingSection(
-                    context, 'Completed', _getCompletedBookings(bookings)),
-                _buildBookingSection(context, 'Cancelled & Expired',
-                    _getCancelledExpiredBookings(bookings)),
-              ],
-            ),
+            children: [
+              _buildBookingSection(context, 'Upcoming Bookings',
+                  _getUpcomingBookings(bookings)),
+              _buildBookingSection(context, 'Pending Payments',
+                  _getPaymentPendingBookings(bookings)),
+              _buildBookingSection(
+                  context, 'Completed', _getCompletedBookings(bookings)),
+              _buildBookingSection(context, 'Cancelled & Expired',
+                  _getCancelledExpiredBookings(bookings)),
+              const SizedBox(height: 32),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -212,135 +264,243 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       BuildContext context, String title, List<Booking> bookings) {
     if (bookings.isEmpty) return const SizedBox.shrink();
 
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        title: Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
+    final visibleCount = _visibleItemsCount[title] ?? 3;
+    final visibleBookings = bookings.take(visibleCount).toList();
+    final hasMore = bookings.length > visibleCount;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          listTileTheme: ListTileTheme.of(context).copyWith(
+            dense: true,
+          ),
         ),
-        children: bookings.map((booking) {
-          final isExpired = booking.status == 'expired' ||
-              ((booking.status == 'pending' ||
-                      booking.status == 'pending_payment') &&
-                  booking.holdExpiresAt != null &&
-                  booking.holdExpiresAt!.toDate().isBefore(DateTime.now()));
-
-          final endDateTime = _parseDateTime(booking.date, booking.endTime);
-          final isTimePassed = endDateTime.isBefore(DateTime.now());
-          final effectiveExpired = isExpired ||
-              ((booking.status == 'pending' ||
-                      booking.status == 'pending_payment') &&
-                  isTimePassed);
-          final isCompleted =
-              (booking.status == 'booked' || booking.status == 'confirmed') &&
-                  isTimePassed;
-
-          // Determine card style based on status
-          Color? cardColor;
-          Color? textColor;
-          if (effectiveExpired || booking.status == 'cancelled') {
-            cardColor = Colors.grey.shade200;
-            textColor = Colors.grey.shade700;
-          } else if (isCompleted) {
-            cardColor = Colors.green.shade50;
-            textColor = Colors.green.shade900;
-          }
-
-          final isPendingPayment = booking.paymentStatus == 'pending' &&
-              !effectiveExpired &&
-              !isCompleted &&
-              booking.status != 'cancelled';
-
-          return Card(
-            color: cardColor,
-            elevation:
-                (effectiveExpired || booking.status == 'cancelled') ? 0 : 2,
-            margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
-            child: InkWell(
-              onTap: (effectiveExpired || booking.status == 'cancelled')
-                  ? null
-                  : () {
-                      if (isPendingPayment) {
-                        _initiatePaymentAndNavigate(booking);
-                      } else {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                BookingDetailScreen(booking: booking),
-                          ),
-                        );
-                      }
-                    },
-              child: ListTile(
-                title: Text(
-                  booking.venueName,
-                  style:
-                      TextStyle(color: textColor, fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${booking.date} at ${booking.startTime}',
-                      style: TextStyle(color: textColor),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          maintainState: true,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16))),
+          collapsedShape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16))),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
-                    if (!isCompleted) ...[
-                      Text(
-                        effectiveExpired
-                            ? 'Status: Expired'
-                            : 'Status: ${booking.status}',
-                        style: TextStyle(
-                          color: effectiveExpired ? Colors.grey : textColor,
-                        ),
-                      ),
-                      if (!effectiveExpired && booking.status != 'cancelled')
-                        Text(
-                          'Payment: ${booking.paymentStatus}',
-                          style: TextStyle(
-                            color: booking.paymentStatus == 'paid'
-                                ? Colors.green
-                                : Colors.orange,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                    ] else
-                      const Text(
-                        'Status: Completed',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                  ],
-                ),
-                trailing: isPendingPayment
-                    ? ElevatedButton(
-                        onPressed: _isInitiatingPayment
-                            ? null
-                            : () => _initiatePaymentAndNavigate(booking),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: _isInitiatingPayment
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('Pay'),
-                      )
-                    : Icon(Icons.chevron_right, color: textColor),
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${bookings.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          children: [
+            ...visibleBookings.map((booking) => _buildBookingCard(booking)),
+            if (hasMore)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => _showMore(title),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Text(
+                      'Show More (${bookings.length - visibleCount})',
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(Booking booking) {
+    final theme = Theme.of(context);
+    final isUpcoming = _getUpcomingBookings([booking]).isNotEmpty;
+    final isPendingPayment = _getPaymentPendingBookings([booking]).isNotEmpty;
+    final isCompleted = _getCompletedBookings([booking]).isNotEmpty;
+    final isCancelled = _getCancelledExpiredBookings([booking]).isNotEmpty;
+
+    String statusText = 'Unknown';
+    Color statusColor = Colors.grey;
+    IconData statusIcon = Icons.help_outline;
+
+    if (isUpcoming) {
+      statusText = 'Confirmed';
+      statusColor = theme.primaryColor;
+      statusIcon = Icons.check_circle_outline;
+    } else if (isPendingPayment) {
+      statusText = 'Pending Payment';
+      statusColor = Colors.orange;
+      statusIcon = Icons.access_time;
+    } else if (isCompleted) {
+      statusText = 'Completed';
+      statusColor = Colors.green;
+      statusIcon = Icons.verified;
+    } else if (isCancelled) {
+      statusText = booking.status == 'cancelled' ? 'Cancelled' : 'Expired';
+      statusColor = Colors.red.shade400;
+      statusIcon = Icons.cancel_outlined;
+    }
+
+    return InkWell(
+      onTap: () {
+        if (isPendingPayment) {
+          _initiatePaymentAndNavigate(booking);
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => BookingDetailScreen(booking: booking),
             ),
           );
-        }).toList(),
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.grey.shade100)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(statusIcon, color: statusColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    booking.venueName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today,
+                          size: 14, color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${booking.date} • ${booking.startTime}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (isPendingPayment)
+              ElevatedButton(
+                onPressed: _isInitiatingPayment
+                    ? null
+                    : () => _initiatePaymentAndNavigate(booking),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: statusColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: _isInitiatingPayment
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Pay Now',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold)),
+              )
+            else
+              Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Colors.grey.shade400),
+          ],
+        ),
       ),
     );
   }

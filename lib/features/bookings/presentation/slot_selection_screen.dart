@@ -402,6 +402,7 @@ class _SlotSelectionScreenState extends ConsumerState<SlotSelectionScreen> {
                           final resp =
                               await BookingService().createBookingViaApi(
                             venueId: widget.venueId,
+                            venueName: widget.venueName,
                             date: dateStr,
                             startTime: _selectedSlotTime!,
                             endTime: endTimeStr,

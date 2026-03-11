@@ -141,6 +141,7 @@ class BookingService {
     required String startTime,
     String? endTime,
     required double amount,
+    String? venueName,
     Map<String, dynamic>? metadata,
   }) async {
     final user = _auth.currentUser;
@@ -154,6 +155,7 @@ class BookingService {
       'startTime': startTime,
       if (endTime != null) 'endTime': endTime,
       'amount': amount,
+      if (venueName != null) 'venueName': venueName,
       if (metadata != null) 'metadata': metadata,
     };
     final body = jsonEncode(bodyMap);
