@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../venues/domain/venue.dart';
 import '../../../shared/widgets/venue_horizontal_card.dart';
+import '../../../shared/widgets/app_sidebar.dart';
 import '../../../core/services/location_service.dart';
 import 'home_sport_chip.dart';
 import 'promo_banner_card.dart';
@@ -19,6 +20,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedSportIndex = 0;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final userName = user?.displayName?.split(' ').first ?? user?.email?.split('@').first ?? 'Guest';
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: AppSidebar(
+        displayName: user?.displayName,
+        email: user?.email,
+        photoURL: user?.photoURL,
+      ),
       backgroundColor: const Color(0xFFF6F7FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF6F7FA),
@@ -39,37 +47,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         leadingWidth: 60,
         leading: Padding(
           padding: const EdgeInsets.only(left: 16.0),
-          child: PopupMenuButton<String>(
-            offset: const Offset(0, 50),
-            icon: CircleAvatar(
+          child: GestureDetector(
+            onTap: () => _scaffoldKey.currentState?.openDrawer(),
+            child: CircleAvatar(
               backgroundColor: theme.primaryColor.withOpacity(0.1),
-              child: Icon(Icons.person, color: theme.primaryColor, size: 20),
+              backgroundImage:
+                  user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+              child: user?.photoURL == null
+                  ? Icon(Icons.person, color: theme.primaryColor, size: 20)
+                  : null,
             ),
-            splashRadius: 24,
-            padding: EdgeInsets.zero,
-            onSelected: (value) {
-              if (value == 'edit') {
-                context.push('/profile/edit');
-              } else if (value == 'settings') {
-                context.push('/profile/settings');
-              } else if (value == 'logout') {
-                FirebaseAuth.instance.signOut();
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'edit',
-                child: Text('Edit Profile'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'settings',
-                child: Text('Settings'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'logout',
-                child: Text('Logout'),
-              ),
-            ],
           ),
         ),
         title: Text(

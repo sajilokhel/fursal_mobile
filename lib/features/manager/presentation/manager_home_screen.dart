@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
+import '../../../core/theme.dart';
 import '../../../shared/widgets/venue_list_card.dart';
 
 class ManagerHomeScreen extends ConsumerWidget {
@@ -26,20 +27,25 @@ class ManagerHomeScreen extends ConsumerWidget {
         elevation: 0,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: ElevatedButton.icon(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: OutlinedButton.icon(
               onPressed: () {
                 context.push('/manager/venues/create-venue');
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black87,
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: const BorderSide(color: AppTheme.primaryColor),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    borderRadius: BorderRadius.circular(8)),
+                textStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
               ),
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('Create New Venue'),
+              label: const Text('New Venue'),
             ),
           ),
         ],
@@ -79,20 +85,22 @@ class ManagerHomeScreen extends ConsumerWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: () {
                         context.push('/manager/venues/create-venue');
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black87,
-                        foregroundColor: Colors.white,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.primaryColor),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
                       ),
-                      icon: const Icon(Icons.add, size: 20),
+                      icon: const Icon(Icons.add, size: 18),
                       label: const Text('Create New Venue'),
                     ),
                   ],

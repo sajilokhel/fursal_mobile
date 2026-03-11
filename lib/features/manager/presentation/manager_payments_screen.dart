@@ -47,6 +47,7 @@ class _ManagerPaymentsScreenState
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
+        centerTitle: false,
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [

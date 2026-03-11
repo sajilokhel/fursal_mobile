@@ -5,15 +5,26 @@ import '../../auth/data/auth_repository.dart';
 import '../../venues/data/venue_repository.dart';
 import '../../bookings/data/booking_repository.dart';
 import '../data/manager_stats_provider.dart';
+import '../../../core/theme.dart';
+import '../../../shared/widgets/app_sidebar.dart';
 import 'widgets/stat_card.dart';
 import 'widgets/quick_action_tile.dart';
 import 'widgets/status_helpers.dart';
 
-class ManagerDashboardScreen extends ConsumerWidget {
+class ManagerDashboardScreen extends ConsumerStatefulWidget {
   const ManagerDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ManagerDashboardScreen> createState() =>
+      _ManagerDashboardScreenState();
+}
+
+class _ManagerDashboardScreenState
+    extends ConsumerState<ManagerDashboardScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final userId = authState.value?.uid;
 
@@ -24,6 +35,12 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final venuesAsync = ref.watch(venuesProvider);
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: AppSidebar(
+        displayName: authState.value?.displayName,
+        email: authState.value?.email,
+        photoURL: authState.value?.photoURL,
+      ),
       body: venuesAsync.when(
         data: (bookings) {
           final myVenues =
@@ -51,6 +68,51 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Profile header
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () =>
+                              _scaffoldKey.currentState?.openDrawer(),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundImage:
+                                authState.value?.photoURL != null
+                                    ? NetworkImage(
+                                        authState.value!.photoURL!)
+                                    : null,
+                            backgroundColor:
+                                AppTheme.primaryColor.withOpacity(0.12),
+                            child: authState.value?.photoURL == null
+                                ? Text(
+                                    (authState.value?.displayName
+                                                    ?.isNotEmpty ==
+                                                true
+                                            ? authState.value!.displayName!
+                                            : 'M')
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Hello, ${authState.value?.displayName?.split(' ').first ?? 'Manager'}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     const Text(
                       'Overview',
                       style: TextStyle(
@@ -374,7 +436,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                       title: 'All Bookings',
                       subtitle: 'View and manage all booking history',
                       icon: Icons.history_outlined,
-                      onTap: () {},
+                      onTap: () => context.go('/manager/bookings'),
                     ),
                   ],
                 ),
