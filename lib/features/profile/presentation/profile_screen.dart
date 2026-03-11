@@ -78,6 +78,13 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const Divider(),
               ListTile(
+                leading: const Icon(Icons.cancel_outlined),
+                title: const Text('Cancel & Refund'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/profile/cancel-refund'),
+              ),
+              const Divider(),
+              ListTile(
                 leading: const Icon(Icons.logout, color: AppTheme.errorColor),
                 title: const Text('Logout',
                     style: TextStyle(color: AppTheme.errorColor)),

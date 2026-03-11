@@ -134,6 +134,22 @@ class AppSidebar extends StatelessWidget {
               _showResetPasswordDialog(context);
             },
           ),
+          _SidebarItem(
+            icon: Icons.help_outline,
+            title: 'Help & Support',
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/profile/help');
+            },
+          ),
+          _SidebarItem(
+            icon: Icons.cancel_outlined,
+            title: 'Cancel & Refund',
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/profile/cancel-refund');
+            },
+          ),
 
           const Spacer(),
           const Divider(height: 1),

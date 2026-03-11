@@ -21,6 +21,7 @@ import '../features/notifications/presentation/notification_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/help_support_screen.dart';
 import '../features/profile/presentation/settings_screen.dart';
+import '../features/profile/presentation/cancel_refund_screen.dart';
 import '../features/venues/presentation/venue_detail_screen.dart';
 import '../features/venues/presentation/venue_list_screen.dart';
 import '../shared/widgets/manager_scaffold_with_navbar.dart';
@@ -78,6 +79,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/profile/help',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const HelpSupportScreen(),
+      ),
+      GoRoute(
+        path: '/profile/cancel-refund',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const CancelRefundScreen(),
       ),
       GoRoute(
         path: '/profile/edit',
