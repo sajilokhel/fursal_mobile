@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:uploadthing/uploadthing.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../domain/venue.dart';
@@ -221,61 +221,24 @@ class VenueRepository {
   }
 
   Future<String> uploadVenueImage(File file, String venueId) async {
-    // Ported from the recommended UploadThing client flow.
-    // UploadThing usually requires a two-step process (get presigned URL -> upload to S3),
-    // but the backend route handler can also handle multipart/form-data with the 
-    // correct headers and field names.
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('User not authenticated');
+    const apiKey = String.fromEnvironment(
+      'UPLOADTHING_SECRET'    );
 
-    final token = await user.getIdToken();
-    final baseUrl = AppConfig.apiUrl;
-
-    // Based on the provided API docs, the route is /api/uploadthing
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/uploadthing'),
-    );
-
-    // Required Authorization header for the UploadThing middleware (core.ts)
-    request.headers['Authorization'] = 'Bearer $token';
-    
-    // Note: 'imageUploader' is the slug used in the backend router (core.ts)
-    // UploadThing's internal multipart handler typically expects specific fields.
-    // If calling directly without the SDK, 'files' is the standard field name.
-    request.files.add(await http.MultipartFile.fromPath(
-      'files', 
-      file.path,
-      filename: 'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    final ut = UploadThing(apiKey);
+    final renamed = File(file.path.replaceAll(
+      RegExp(r'[^/]+$'),
+      'venue_${venueId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
     ));
+    await renamed.writeAsBytes(await file.readAsBytes());
 
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      
-      // According to docs, we should prioritize 'ufsUrl' over 'url'
-      // The response structure can vary, but usually looks like:
-      // { "files": [{ "ufsUrl": "...", "url": "..." }], ... } 
-      // or a list of file objects directly.
-      
-      if (data is List && data.isNotEmpty) {
-        final fileData = data[0];
-        return fileData['ufsUrl'] ?? fileData['url'] ?? '';
-      }
-      
-      if (data is Map && data.containsKey('files')) {
-        final files = data['files'] as List;
-        if (files.isNotEmpty) {
-          final fileData = files[0];
-          return fileData['ufsUrl'] ?? fileData['url'] ?? '';
-        }
-      }
-
-      return data['url'] ?? data['ufsUrl'] ?? data['fileUrl'] ?? '';
-    } else {
-      throw Exception('Failed to upload image: ${response.body}');
+    final success = await ut.uploadFiles([renamed]);
+    if (!success || ut.uploadedFilesData.isEmpty) {
+      throw Exception('UploadThing upload failed');
     }
+
+    final fileData = ut.uploadedFilesData.first;
+    final url = fileData['ufsUrl'] ?? fileData['url'] ?? '';
+    if (url.isEmpty) throw Exception('UploadThing returned no URL');
+    return url;
   }
 }

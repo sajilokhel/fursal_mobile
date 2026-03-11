@@ -510,6 +510,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
         createdAt: venue.createdAt,
         averageRating: venue.averageRating,
         reviewCount: venue.reviewCount,
+        sportType: venue.sportType,
       );
 
       // Update in Firestore
@@ -552,6 +553,7 @@ class _ManagerVenueEditScreenState extends ConsumerState<ManagerVenueEditScreen>
         createdAt: venue.createdAt,
         averageRating: venue.averageRating,
         reviewCount: venue.reviewCount,
+        sportType: venue.sportType,
       );
 
       await ref.read(venueRepositoryProvider).updateVenue(updatedVenue);
