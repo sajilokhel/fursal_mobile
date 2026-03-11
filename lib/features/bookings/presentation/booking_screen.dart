@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/booking_repository.dart';
 import '../data/checkout_state.dart';
 import '../domain/booking.dart';
+import '../../venues/data/venue_repository.dart';
 import '../../../services/payment_service.dart';
 import 'payment_screen.dart';
 import 'booking_detail_screen.dart';
@@ -416,16 +417,50 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    booking.venueName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
+                  if (booking.venueName.startsWith('Venue #'))
+                    ref.watch(venueProvider(booking.venueId)).when(
+                          data: (venue) => Text(
+                            venue?.name ?? booking.venueName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          loading: () => Text(
+                            booking.venueName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          error: (_, __) => Text(
+                            booking.venueName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                  else
+                    Text(
+                      booking.venueName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
