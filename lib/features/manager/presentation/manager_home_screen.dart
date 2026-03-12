@@ -95,13 +95,12 @@ class ManagerHomeScreen extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                         textStyle: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Create New Venue'),
+                      label: const Text('Create Venue'),
                     ),
                   ],
                 ),

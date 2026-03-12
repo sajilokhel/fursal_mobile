@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:uploadthing/uploadthing.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../../../core/utils/image_utils.dart';
@@ -16,8 +17,8 @@ final venueRepositoryProvider = Provider<VenueRepository>((ref) {
   return VenueRepository(FirebaseFirestore.instance);
 });
 
-final venuesProvider = StreamProvider<List<Venue>>((ref) {
-  return ref.watch(venueRepositoryProvider).getVenues();
+final venuesProvider = FutureProvider<List<Venue>>((ref) {
+  return ref.watch(venueRepositoryProvider).getApprovedVenues();
 });
 
 final venueProvider = StreamProvider.family<Venue?, String>((ref, id) {
@@ -64,6 +65,42 @@ class VenueRepository {
         return Venue.fromMap(doc.data(), doc.id);
       }).toList();
     });
+  }
+
+  /// Fetch approved venues from the backend API.
+  /// Only approved venues are returned (server-side filtering).
+  /// This prevents pending/rejected venues from being exposed to users.
+  Future<List<Venue>> getApprovedVenues({
+    int limit = 500,
+    int offset = 0,
+    String? sportType,
+  }) async {
+    try {
+      String url = '${AppConfig.apiUrl}/venues?limit=$limit&offset=$offset';
+      if (sportType != null && sportType.isNotEmpty) {
+        url += '&sportType=$sportType';
+      }
+
+      debugPrint('🔵 Fetching venues from: $url');
+      final response = await http.get(Uri.parse(url));
+      debugPrint('🟢 Venues API response status: ${response.statusCode}');
+      debugPrint('🟢 Venues API response body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to fetch venues: ${response.statusCode} - ${response.body}');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final venues = (data['venues'] as List)
+          .map((v) => Venue.fromMap(v as Map<String, dynamic>, v['id'] as String))
+          .toList();
+
+      debugPrint('🟢 Successfully loaded ${venues.length} venues');
+      return venues;
+    } catch (e) {
+      debugPrint('🔴 Error fetching approved venues: $e');
+      throw Exception('Error fetching approved venues: $e');
+    }
   }
 
   Stream<Venue?> getVenue(String id) {

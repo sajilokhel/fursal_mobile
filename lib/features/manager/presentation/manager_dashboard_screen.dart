@@ -42,7 +42,7 @@ class _ManagerDashboardScreenState
           final myVenueIds = myVenues.map((v) => v.id).toList();
 
           if (myVenueIds.isEmpty) {
-            return const Center(child: Text('No venues found'));
+            return _buildEmptyDashboard(context, authState);
           }
 
           final bookingsAsync =
@@ -456,6 +456,292 @@ class _ManagerDashboardScreenState
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
+      ),
+    );
+  }
+
+  Widget _buildEmptyDashboard(BuildContext context, AsyncValue authState) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Profile header
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundImage: authState.value?.photoURL != null
+                    ? NetworkImage(authState.value!.photoURL!)
+                    : null,
+                backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+                child: authState.value?.photoURL == null
+                    ? Text(
+                        (authState.value?.displayName?.isNotEmpty == true
+                                ? authState.value!.displayName!
+                                : 'M')
+                            .substring(0, 1)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Hello, ${authState.value?.displayName?.split(' ').first ?? 'Manager'}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          // Dashboard title
+          Text(
+            'Dashboard',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Overview of your venue\'s performance',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Summary cards in responsive grid
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 600;
+              return Column(
+                children: [
+                  if (isWide)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Total Revenue',
+                            value: 'Rs. 0',
+                            subtitle: 'Gross Revenue:\nFrom 0 online bookings',
+                            icon: Icons.account_balance_wallet_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Active Bookings',
+                            value: '0',
+                            subtitle: '0 pending payment',
+                            icon: Icons.event_available,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        _StatCard(
+                          title: 'Total Revenue',
+                          value: 'Rs. 0',
+                          subtitle: 'Gross Revenue:\nFrom 0 online bookings',
+                          icon: Icons.account_balance_wallet_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _StatCard(
+                          title: 'Active Bookings',
+                          value: '0',
+                          subtitle: '0 pending payment',
+                          icon: Icons.event_available,
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 12),
+                  if (isWide)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Physical Bookings',
+                            value: '0',
+                            subtitle: 'Manual reservations',
+                            icon: Icons.sports_soccer,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Online Bookings',
+                            value: '0',
+                            subtitle: 'Website reservations',
+                            icon: Icons.language,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        _StatCard(
+                          title: 'Physical Bookings',
+                          value: '0',
+                          subtitle: 'Manual reservations',
+                          icon: Icons.sports_soccer,
+                        ),
+                        const SizedBox(height: 12),
+                        _StatCard(
+                          title: 'Online Bookings',
+                          value: '0',
+                          subtitle: 'Website reservations',
+                          icon: Icons.language,
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 32),
+          // Recent Bookings
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Recent Bookings',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      )),
+                  const SizedBox(height: 4),
+                  Text('Latest booking activity for your venue.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade600,
+                      )),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text('No bookings found.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey.shade500,
+                        )),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Quick Actions
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Quick Actions',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      )),
+                  const SizedBox(height: 4),
+                  Text('Manage your venue efficiently',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade600,
+                      )),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        context.push('/manager/venues/create-venue');
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create Venue'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    leading: const Icon(Icons.settings_outlined, color: Colors.orange),
+                    title: const Text('Venue Settings'),
+                    subtitle: const Text('Update price, description, and amenities'),
+                    enabled: false,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history_outlined, color: Colors.orange),
+                    title: const Text('All Bookings'),
+                    subtitle: const Text('View and manage all booking history'),
+                    enabled: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 24, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          )),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    )),
+            const SizedBox(height: 8),
+            Text(subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    )),
+          ],
+        ),
       ),
     );
   }
