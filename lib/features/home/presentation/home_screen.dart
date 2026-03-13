@@ -78,9 +78,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ],
+        
       ),
       body: CustomScrollView(
         slivers: [
+
+            // ── Added Line ──────────────────────────────────────
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), // Adjust padding as needed
+              child: Divider(
+                color: Color.fromARGB(255, 160, 154, 129), // Light grey color to match your theme
+                thickness: 1.5,
+                height: 1.0,
+              ),
+            ),
+          ),
 
           // ── Browse by sports ────────────────────────────────
           SliverToBoxAdapter(

@@ -69,7 +69,7 @@ class _PromoBannerCardState extends State<PromoBannerCard>
     final (emoji, sport) = _sports[_index];
 
     return Container(
-      height: 150,
+      height: 130,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
@@ -181,7 +181,7 @@ class _PromoBannerCardState extends State<PromoBannerCard>
                   const SizedBox(height: 6),
                   // Headline
                   const Text(
-                    'Get on\nthe Field! 🏟️',
+                    'Get on the Field! 🏟️',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,

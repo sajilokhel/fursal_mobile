@@ -156,7 +156,7 @@ class VenueHorizontalCard extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(6),
@@ -164,7 +164,7 @@ class VenueHorizontalCard extends StatelessWidget {
                         child: Text(
                           'Rs. ${venue.pricePerHour.toInt()}/hr',
                           style: const TextStyle(
-                            color: AppTheme.primaryColor,
+                            color: Color.fromARGB(255, 0, 0, 0),
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -176,7 +176,7 @@ class VenueHorizontalCard extends StatelessWidget {
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                              horizontal: 10, vertical: 8),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                           elevation: 0,
@@ -187,7 +187,7 @@ class VenueHorizontalCard extends StatelessWidget {
                             fontSize: 11,
                           ),
                         ),
-                        child: const Text('Book'),
+                        child: const Text('Book Now'),
                       ),
                     ],
                   ),
