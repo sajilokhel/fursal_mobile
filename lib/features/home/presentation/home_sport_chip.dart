@@ -52,10 +52,10 @@ class HomeSportChip extends StatelessWidget {
               sport.emoji,
               style: const TextStyle(
                 fontSize: 18,
-                height: 1.0,
+                height: 0.8,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox( width: 8),
             Text(
               sport.name,
               style: TextStyle(

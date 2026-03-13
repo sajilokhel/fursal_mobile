@@ -88,7 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), // Adjust padding as needed
               child: Divider(
-                color: Color.fromARGB(255, 160, 154, 129), // Light grey color to match your theme
+                color: Color.fromARGB(255, 240, 240, 240), // Light grey color to match your theme
                 thickness: 1.5,
                 height: 1.0,
               ),

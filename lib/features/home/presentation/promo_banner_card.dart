@@ -1,73 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 
-class PromoBannerCard extends StatefulWidget {
+class PromoBannerCard extends StatelessWidget {
   final VoidCallback? onBookNow;
 
   const PromoBannerCard({super.key, this.onBookNow});
 
   @override
-  State<PromoBannerCard> createState() => _PromoBannerCardState();
-}
-
-class _PromoBannerCardState extends State<PromoBannerCard>
-    with TickerProviderStateMixin {
-  static const _sports = [
-    ('⚽', 'Futsal'),
-    ('🏸', 'Badminton'),
-    ('🏏', 'Cricket'),
-    ('🏀', 'Basketball'),
-    ('🏐', 'Volleyball'),
-    ('🎾', 'Tennis'),
-  ];
-
-  int _index = 0;
-  late final AnimationController _floatController;
-  late final AnimationController _fadeController;
-  late final Animation<double> _floatAnim;
-  late final Animation<double> _fadeAnim;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat(reverse: true);
-
-    _floatAnim = Tween<double>(begin: 0, end: 10).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
-    );
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    )..value = 1.0;
-
-    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
-
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) async {
-      await _fadeController.reverse();
-      if (!mounted) return;
-      setState(() => _index = (_index + 1) % _sports.length);
-      _fadeController.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _floatController.dispose();
-    _fadeController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final (emoji, sport) = _sports[_index];
-
     return Container(
       height: 130,
       decoration: BoxDecoration(
@@ -123,32 +62,26 @@ class _PromoBannerCardState extends State<PromoBannerCard>
               left: 0,
               bottom: 0,
               right: 0,
-              child: _DotStrip(),
+              child: const _DotStrip(),
             ),
-            // ── Big floating emoji (right side) ──────────────
+            
+            // ── Static Mascot Image (right side) ──────────────
             Positioned(
-              right: 16,
+              right: -40,
               top: 0,
               bottom: 0,
               child: Center(
-                child: AnimatedBuilder(
-                  animation: _floatAnim,
-                  builder: (_, __) => Transform.translate(
-                    offset: Offset(0, -_floatAnim.value),
-                    child: FadeTransition(
-                      opacity: _fadeAnim,
-                      child: Text(
-                        emoji,
-                        style: const TextStyle(
-                          fontSize: 64,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
+                // Make sure to add your actual mascot image to your assets folder 
+                // and register it in your pubspec.yaml
+                child: Image.asset(
+                  'assets/images/mascot.png', 
+                  width: 200, // Adjust size as needed
+                  height: 200,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
+
             // ── Content ───────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 100, 14),
@@ -165,16 +98,13 @@ class _PromoBannerCardState extends State<PromoBannerCard>
                       color: Colors.white.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: FadeTransition(
-                      opacity: _fadeAnim,
-                      child: Text(
-                        'Play $sport Today!',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                        ),
+                    child: const Text(
+                      'Play Today!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ),
@@ -193,7 +123,7 @@ class _PromoBannerCardState extends State<PromoBannerCard>
                   const SizedBox(height: 8),
                   // CTA button
                   GestureDetector(
-                    onTap: widget.onBookNow,
+                    onTap: onBookNow,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -231,6 +161,8 @@ class _PromoBannerCardState extends State<PromoBannerCard>
 
 /// A row of faint dots for texture at the bottom of the banner.
 class _DotStrip extends StatelessWidget {
+  const _DotStrip();
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(

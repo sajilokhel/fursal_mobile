@@ -159,7 +159,7 @@ class VenueCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
+                        color: Color.fromARGB(255, 14, 13, 13),
                       ),
                     ),
                   ),
@@ -168,19 +168,19 @@ class VenueCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _OverlayButton(
-                          text: 'Book Now',
-                          onTap: onSeeDetails,
-                          icon: Icons.arrow_forward,
-                          backgroundColor: AppTheme.primaryColor,
-                        
+                          text: 'Map',
+                          icon: Icons.location_on,
+                          onTap: onViewOnMap,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: _OverlayButton(
-                          text: 'Map',
-                          icon: Icons.location_on,
-                          onTap: onViewOnMap,
+                          text: 'Book Now',
+                          onTap: onSeeDetails,
+                          // icon: Icons.arrow_forward,
+                          backgroundColor: AppTheme.primaryColor,
+                        
                         ),
                       ),
                     ],
