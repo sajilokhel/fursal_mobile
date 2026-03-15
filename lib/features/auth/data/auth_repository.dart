@@ -86,7 +86,9 @@ class AuthRepository {
 
   Stream<List<AuthUser>> getUsers() {
     return _firestore.collection('users').snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => AuthUser.fromMap(doc.data(), doc.id)).toList();
+      return snapshot.docs
+          .map((doc) => AuthUser.fromMap(doc.data(), doc.id))
+          .toList();
     });
   }
 
@@ -117,8 +119,7 @@ class AuthRepository {
     if (user == null) return;
     _firestore.collection('users').doc(user.uid).get().then((doc) {
       if (!doc.exists) {
-        _saveUserToFirestore(user, user.displayName ?? '')
-            .catchError((e) {
+        _saveUserToFirestore(user, user.displayName ?? '').catchError((e) {
           print('Warning: Background profile repair failed: $e');
         });
       }
@@ -137,10 +138,14 @@ class AuthRepository {
 
     // Fire-and-forget: send verification email and sync profile.
     user.sendEmailVerification().catchError(
-      (Object e) { print('Warning: Failed to send verification email: $e'); },
+      (Object e) {
+        print('Warning: Failed to send verification email: $e');
+      },
     );
     _saveUserToFirestore(user, name).catchError(
-      (Object e) { print('Warning: Failed to sync profile during registration: $e'); },
+      (Object e) {
+        print('Warning: Failed to sync profile during registration: $e');
+      },
     );
 
     // Do NOT call signOut() here — it triggers a second auth state event which
@@ -201,6 +206,59 @@ class AuthRepository {
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
+  }
+
+  Future<void> deleteAccount(String reason) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final uid = user.uid;
+    final email = user.email;
+
+    print('Starting account deletion process for UID: $uid');
+
+    // 1. Record the reason (Non-critical)
+    try {
+      await _firestore.collection('deleted_accounts').add({
+        'uid': uid,
+        'email': email,
+        'reason': reason,
+        'deletedAt': FieldValue.serverTimestamp(),
+      });
+      print('Successfully logged deletion reason to deleted_accounts');
+    } catch (e) {
+      print('Warning: Failed to log deletion reason: $e');
+      // Continue anyway
+    }
+
+    // 2. Delete the user's data from `users` collection (Best effort)
+    try {
+      await _firestore.collection('users').doc(uid).delete();
+      print(
+          'Successfully deleted user document from Firestore users collection');
+    } catch (e) {
+      print('Error deleting Firestore user document: $e');
+      rethrow; // Surface the real error (e.g. Firestore permission denied)
+    }
+
+    // 3. Delete from Firebase Auth (CRITICAL STEP)
+    try {
+      await user.delete();
+      print('Successfully deleted account from Firebase Auth');
+    } on FirebaseAuthException catch (e) {
+      print(
+          'FirebaseAuth error during account deletion: ${e.code} - ${e.message}');
+      if (e.code == 'requires-recent-login') {
+        rethrow;
+      }
+      throw Exception('Failed to delete auth account: ${e.message}');
+    } catch (e) {
+      print('General error during account deletion: $e');
+      throw Exception('Failed to delete auth account: ${e.toString()}');
+    }
+
+    // 4. Clean up any local sign-in state
+    await _googleSignIn.signOut();
   }
 
   Future<void> sendPasswordResetEmail(String email) async {

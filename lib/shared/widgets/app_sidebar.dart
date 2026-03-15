@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/presentation/auth_controller.dart';
 
 class AppSidebar extends ConsumerWidget {
   final String? displayName;
@@ -163,6 +164,15 @@ class AppSidebar extends ConsumerWidget {
               context.push('/profile/cancel-refund');
             },
           ),
+          _SidebarItem(
+            icon: Icons.delete_forever,
+            title: 'Delete Account',
+            color: Colors.red,
+            onTap: () {
+              Navigator.of(context).pop();
+              _showDeleteAccountDialog(context, ref);
+            },
+          ),
 
           const Spacer(),
           const Divider(height: 1),
@@ -227,6 +237,125 @@ class AppSidebar extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DeleteAccountDialog(outerRef: ref),
+    );
+  }
+}
+
+class _DeleteAccountDialog extends ConsumerStatefulWidget {
+  final WidgetRef outerRef;
+  const _DeleteAccountDialog({required this.outerRef});
+
+  @override
+  ConsumerState<_DeleteAccountDialog> createState() =>
+      _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _reasonCtrl = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(authControllerProvider.notifier).deleteAccount(
+            _reasonCtrl.text.trim(),
+          );
+      // Removed Navigator.pop(context) here because the auth state stream 
+      // will automatically redirect the app to the login/landing screen,
+      // and manual popping during that redirect can cause a black screen.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account deleted successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String message;
+        if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
+          message =
+              'For security reasons, please log out and log in again before deleting your account.';
+        } else {
+          message = 'Failed to delete account: ${e.toString()}';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        'Delete Account',
+        style: TextStyle(color: AppTheme.errorColor),
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This action is irreversible. All your data will be permanently deleted.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Text('Please tell us why you are leaving:'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Reason for deletion...',
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Please provide a reason' : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
+          onPressed: _isLoading ? null : _submit,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Delete'),
+        ),
+      ],
     );
   }
 }
