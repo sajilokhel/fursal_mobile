@@ -7,10 +7,10 @@ on:
 
 jobs:
   # ─────────────────────────────────────────────
-  # Android build (APK)
+  # Android build (AAB for Play Store & APK for GitHub)
   # ─────────────────────────────────────────────
   build-android:
-    name: Build Android APK
+    name: Build Android Artifacts
     runs-on: ubuntu-latest
 
     steps:
@@ -39,8 +39,7 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 
-      # Decode the base64-encoded keystore stored in GitHub Secrets and write it
-      # to the android/ directory, then create key.properties so Gradle picks it up.
+      # Decode the base64-encoded keystore
       - name: Set up release keystore
         env:
           KEYSTORE_BASE64:  ${{ secrets.KEYSTORE_BASE64 }}
@@ -56,8 +55,19 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
+      # Build the AAB (Required for Google Play Console)
+      - name: Build AAB
+        run: flutter build appbundle --release
+
+      # Build the APK (Optional - useful for direct downloads from GitHub)
       - name: Build APK
         run: flutter build apk --release
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -86,7 +96,6 @@ jobs:
           ENV_FILE: ${{ secrets.ENV_FILE }}
         run: echo "$ENV_FILE" > .env
 
-      # Name: GOOGLE_SERVICES_INFO_PLIST, Value: content of ios/Runner/GoogleService-Info.plist
       - name: Create GoogleService-Info.plist
         env:
           GOOGLE_SERVICES_INFO_PLIST: ${{ secrets.GOOGLE_SERVICES_INFO_PLIST }}
@@ -112,7 +121,7 @@ jobs:
           path: build/ios/iphoneos/SajiloKhel.ipa
 
   # ─────────────────────────────────────────────
-  # Create GitHub Release with both artifacts
+  # Create GitHub Release with all artifacts
   # ─────────────────────────────────────────────
   release:
     name: Create GitHub Release
@@ -120,6 +129,12 @@ jobs:
     needs: [build-android, build-ios]
 
     steps:
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+          path: .
+
       - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
@@ -134,6 +149,7 @@ jobs:
 
       - name: Rename artifacts
         run: |
+          mv app-release.aab SajiloKhel.aab
           mv app-release.apk SajiloKhel.apk
 
       - name: Create Release
@@ -142,12 +158,16 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: SajiloKhel ${{ github.ref_name }}
           body: |
-            ## SajiloKhel ${{ github.ref_name }}
+            ## SajiloKhel ${{ github.ref_name }} Release
 
-            ### Downloads
-            - **Android**: `SajiloKhel.apk`
-            - **iOS**: `SajiloKhel.ipa` *(unsigned — sideload only)*
+            ### Android
+            - **Google Play**: Upload `SajiloKhel.aab` to the Console.
+            - **Direct Install**: Download `SajiloKhel.apk`.
+
+            ### iOS
+            - **Sideload**: `SajiloKhel.ipa` *(unsigned)*.
           files: |
+            SajiloKhel.aab
             SajiloKhel.apk
             SajiloKhel.ipa
         env:
