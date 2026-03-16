@@ -1,7 +1,6 @@
 # Invoice Specification
 
 This document outlines the structure and content of the generated PDF invoice for bookings.
-
 ## PDF Structure
 
 The invoice is generated using the `pdf` Flutter package and contains the following sections:
